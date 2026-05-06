@@ -13,7 +13,7 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
     <nz-layout class="min-h-screen">
       <nz-sider nzCollapsible nzWidth="200px">
         <div class="logo h-16 flex items-center justify-center text-white font-bold text-xl">
-          <span class="text-purple-400">●</span> KESTRA CLONE
+          <span class="text-purple-400">●</span> LOGO
         </div>
         <ul nz-menu nzTheme="dark" nzMode="inline">
           <li nz-menu-item nzSelected routerLink="/flows">

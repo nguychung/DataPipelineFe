@@ -1,7 +1,7 @@
 <div class="max-w-6xl mx-auto p-8 bg-white rounded-xl shadow-sm mt-4">
   <div class="flex justify-between items-center mb-8">
     <h2 class="text-2xl font-bold text-gray-800">Setup Data Sync Flow</h2>
-    <button nz-button nzType="default" routerLink="/flows">Cancel</button>
+    <!-- <button nz-button nzType="default" routerLink="/flows">Cancel</button> -->
   </div>
 
   <nz-steps [nzCurrent]="currentStep" class="mb-10">
@@ -12,26 +12,34 @@
   </nz-steps>
 
   <form nz-form [formGroup]="flowForm" nzLayout="vertical">
-    
+
     <div *ngIf="currentStep === 0">
       <div formGroupName="flow_metadata" class="grid grid-cols-2 gap-6">
         <nz-form-item class="col-span-2">
           <nz-form-label nzRequired>Flow ID</nz-form-label>
-          <nz-form-control><input nz-input formControlName="id" placeholder="e.g., station-data-fetcher" /></nz-form-control>
+          <nz-form-control><input nz-input formControlName="id"
+              placeholder="e.g., station-data-fetcher" /></nz-form-control>
         </nz-form-item>
+
         <nz-form-item>
           <nz-form-label nzRequired>Namespace</nz-form-label>
           <nz-form-control><input nz-input formControlName="namespace" placeholder="company.team" /></nz-form-control>
         </nz-form-item>
-        <nz-form-item formGroupName="../trigger">
-          <nz-form-label nzRequired>Repeat Every (Minutes)</nz-form-label>
-          <nz-input-number formControlName="minutes" [nzMin]="1" class="w-full"></nz-input-number>
+
+        <nz-form-item>
+          <nz-form-label>Description</nz-form-label>
+          <nz-form-control><textarea nz-input formControlName="description" rows="1"></textarea></nz-form-control>
         </nz-form-item>
       </div>
-      <nz-form-item formGroupName="flow_metadata" class="mt-4">
-        <nz-form-label>Description</nz-form-label>
-        <textarea nz-input formControlName="description" rows="3"></textarea>
-      </nz-form-item>
+
+      <div formGroupName="trigger" class="mt-6">
+        <nz-form-item>
+          <nz-form-label nzRequired>Repeat Every (Minutes)</nz-form-label>
+          <nz-form-control>
+            <nz-input-number formControlName="minutes" [nzMin]="1" class="w-full"></nz-input-number>
+          </nz-form-control>
+        </nz-form-item>
+      </div>
     </div>
 
     <div *ngIf="currentStep === 1" formGroupName="source">
@@ -47,31 +55,116 @@
         </div>
 
         <div class="grid grid-cols-4 gap-4">
-          <nz-form-item class="col-span-3"><nz-form-label nzRequired>API URL</nz-form-label><input nz-input formControlName="url" /></nz-form-item>
-          <nz-form-item><nz-form-label nzRequired>Method</nz-form-label>
-            <nz-select formControlName="method">
-              <nz-option nzValue="GET" nzLabel="GET"></nz-option>
-              <nz-option nzValue="POST" nzLabel="POST"></nz-option>
-            </nz-select>
+          <nz-form-item class="col-span-3">
+            <nz-form-label nzRequired>API URL</nz-form-label>
+            <nz-form-control><input nz-input formControlName="url" /></nz-form-control>
+          </nz-form-item>
+          <nz-form-item>
+            <nz-form-label nzRequired>Method</nz-form-label>
+            <nz-form-control>
+              <nz-select formControlName="method">
+                <nz-option nzValue="GET" nzLabel="GET"></nz-option>
+                <nz-option nzValue="POST" nzLabel="POST"></nz-option>
+              </nz-select>
+            </nz-form-control>
           </nz-form-item>
         </div>
 
-        <nz-card nzTitle="Headers" nzSize="small">
+        <nz-card nzTitle="Headers" nzSize="small" class="shadow-sm">
           <div formArrayName="headers">
             <div *ngFor="let h of sourceHeaders.controls; let i=index" [formGroupName]="i" class="flex gap-2 mb-2">
-              <input nz-input formControlName="key" placeholder="Key" />
+              <input nz-input formControlName="key" placeholder="Key (e.g. Authorization)" />
               <input nz-input formControlName="value" placeholder="Value" />
               <button nz-button nzType="text" nzDanger (click)="removeHeader(i)">X</button>
             </div>
           </div>
-          <button nz-button nzType="dashed" class="w-full" (click)="addHeader()">+ Add Header</button>
+          <button nz-button nzType="dashed" class="w-full mt-2" (click)="addHeader()">+ Add Header</button>
         </nz-card>
+
+        <nz-card nzTitle="Request Params Mapping" nzSize="small" class="shadow-sm">
+          <div formArrayName="request_param_mapping" class="space-y-4">
+            <div *ngFor="let p of requestParams.controls; let i=index" [formGroupName]="i"
+              class="p-4 bg-gray-50 rounded border relative">
+              <button nz-button nzType="text" nzDanger class="!absolute top-2 right-2"
+                (click)="removeRequestParam(i)">X1</button>
+              <div class="grid grid-cols-2 gap-4 mb-3">
+                <div>
+                  <label class="text-xs font-semibold text-gray-500">Field Name</label>
+                  <input nz-input formControlName="field" placeholder="e.g. start_time" />
+                </div>
+                <div>
+                  <label class="text-xs font-semibold text-gray-500">Type</label>
+                  <input nz-input formControlName="type" placeholder="e.g. datetime_expression" />
+                </div>
+              </div>
+              <div formGroupName="logic" class="grid grid-cols-4 gap-2">
+                <input nz-input formControlName="base" placeholder="Base" />
+                <nz-input-number formControlName="offset_value" class="w-full"></nz-input-number>
+                <input nz-input formControlName="offset_unit" placeholder="Unit (HOURS)" />
+                <input nz-input formControlName="format" placeholder="Format" />
+              </div>
+            </div>
+          </div>
+          <button nz-button nzType="dashed" class="w-full mt-3" (click)="addRequestParam()">+ Add Param Mapping</button>
+        </nz-card>
+
+        <nz-card nzTitle="Request Body Mapping" nzSize="small" class="shadow-sm">
+          <div formArrayName="body_mapping" class="space-y-4">
+            <div *ngFor="let b of bodyMappings.controls; let i=index" [formGroupName]="i"
+              class="p-4 bg-gray-50 rounded border relative">
+              <button nz-button nzType="text" nzDanger class="absolute top-2 right-2" (click)="removeBodyMapping(i)">
+                <span nz-icon nzType="delete"></span>
+              </button>
+
+              <div class="grid grid-cols-2 gap-4 mb-3">
+                <div>
+                  <label class="text-xs font-semibold text-gray-500 uppercase">Field Name</label>
+                  <input nz-input formControlName="field" placeholder="e.g. timestamp" />
+                </div>
+                <div>
+                  <label class="text-xs font-semibold text-gray-500 uppercase">Data Type</label>
+                  <input nz-input formControlName="type" placeholder="e.g. datetime_expression" />
+                </div>
+              </div>
+
+              <div formGroupName="logic">
+                <label class="text-xs font-semibold text-gray-500 uppercase block mb-1">Expression Logic</label>
+                <div class="grid grid-cols-4 gap-2">
+                  <div>
+                    <input nz-input formControlName="base" placeholder="Base (now)" />
+                  </div>
+                  <div>
+                    <nz-input-number formControlName="offset_value" class="w-full"
+                      nzPlaceHolder="Offset"></nz-input-number>
+                  </div>
+                  <div>
+                    <nz-select formControlName="offset_unit" class="w-full">
+                      <nz-option nzValue="SECONDS" nzLabel="Seconds"></nz-option>
+                      <nz-option nzValue="MINUTES" nzLabel="Minutes"></nz-option>
+                      <nz-option nzValue="HOURS" nzLabel="Hours"></nz-option>
+                      <nz-option nzValue="DAYS" nzLabel="Days"></nz-option>
+                    </nz-select>
+                  </div>
+                  <div>
+                    <input nz-input formControlName="format" placeholder="Format (yyyy-MM-dd...)" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button nz-button nzType="dashed" class="w-full mt-3" (click)="addBodyMapping()">
+            <span nz-icon nzType="plus"></span> Add Body Field Mapping
+          </button>
+        </nz-card>
+
       </div>
     </div>
 
     <div *ngIf="currentStep === 2" class="space-y-4">
       <div formArrayName="transformation_pipeline">
-        <div *ngFor="let t of transforms.controls; let i=index" [formGroupName]="i" class="flex gap-4 p-4 border rounded mb-4">
+        <div *ngFor="let t of transforms.controls; let i=index" [formGroupName]="i"
+          class="flex gap-4 p-4 border rounded mb-4">
           <nz-select formControlName="action" class="w-1/4">
             <nz-option nzValue="flatten" nzLabel="Flatten"></nz-option>
             <nz-option nzValue="filter" nzLabel="Filter"></nz-option>
@@ -96,12 +189,16 @@
           <button nz-button nzType="link" (click)="showDestGallery()">Change Connector</button>
         </div>
 
-        <nz-form-item><nz-form-label nzRequired>Connection URL</nz-form-label><input nz-input formControlName="url" /></nz-form-item>
-        
+        <nz-form-item><nz-form-label nzRequired>Connection URL</nz-form-label><input nz-input
+            formControlName="url" /></nz-form-item>
+
         <div class="grid grid-cols-3 gap-4">
-          <nz-form-item><nz-form-label nzRequired>Username</nz-form-label><input nz-input formControlName="username" /></nz-form-item>
-          <nz-form-item><nz-form-label>Password</nz-form-label><input nz-input type="password" formControlName="password" /></nz-form-item>
-          <nz-form-item><nz-form-label nzRequired>Table</nz-form-label><input nz-input formControlName="table" /></nz-form-item>
+          <nz-form-item><nz-form-label nzRequired>Username</nz-form-label><input nz-input
+              formControlName="username" /></nz-form-item>
+          <nz-form-item><nz-form-label>Password</nz-form-label><input nz-input type="password"
+              formControlName="password" /></nz-form-item>
+          <nz-form-item><nz-form-label nzRequired>Table</nz-form-label><input nz-input
+              formControlName="table" /></nz-form-item>
         </div>
 
         <nz-card nzTitle="Columns Mapping" nzSize="small">
@@ -112,6 +209,7 @@
               <nz-select formControlName="type" class="w-1/4">
                 <nz-option nzValue="character varying" nzLabel="String"></nz-option>
                 <nz-option nzValue="float" nzLabel="Float"></nz-option>
+                <nz-option nzValue="timestamp" nzLabel="Timestamp"></nz-option>
               </nz-select>
               <button nz-button nzType="text" nzDanger (click)="removeColumn(i)">X</button>
             </div>
@@ -125,7 +223,8 @@
       <button nz-button (click)="prev()" [disabled]="currentStep === 0">Back</button>
       <div>
         <button nz-button nzType="primary" (click)="next()" *ngIf="currentStep < 3">Next</button>
-        <button nz-button nzType="primary" (click)="onSubmit()" *ngIf="currentStep === 3" class="bg-green-600 border-none">Save Flow</button>
+        <button nz-button nzType="primary" (click)="onSubmit()" *ngIf="currentStep === 3"
+          class="bg-green-600 border-none">Save Flow</button>
       </div>
     </div>
   </form>

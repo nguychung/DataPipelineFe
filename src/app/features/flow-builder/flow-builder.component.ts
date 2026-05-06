@@ -42,88 +42,140 @@ export class FlowBuilderComponent implements OnInit {
   isDestGalleryVisible = true;
 
   ngOnInit() {
-    this.initForm();
+  this.initForm();
+    this.fillSampleData();
   }
-
-  initForm() {
+initForm() {
     this.flowForm = this.fb.group({
       flow_metadata: this.fb.group({
-        id: ['', Validators.required],
-        namespace: ['', Validators.required],
-        description: [''],
+        id: ['fetch-and-upsert-data-tram-do-mua', Validators.required],
+        namespace: ['company.team', Validators.required],
+        description: ['Fetch trạm đo mưa mỗi 10 phút']
       }),
-      trigger: this.fb.group({ minutes: [10, [Validators.required, Validators.min(1)]] }),
+      trigger: this.fb.group({
+        minutes: [10, [Validators.required, Validators.min(1)]]
+      }),
       source: this.fb.group({
-        type: ['', Validators.required],
-        url: ['', Validators.required],
+        type: ['', Validators.required], // ĐỂ TRỐNG ĐỂ CHỌN TỪ GALLERY
+        url: ['https://vwater-open.vrain.vn/v1/stations/stats', Validators.required],
         method: ['GET', Validators.required],
         headers: this.fb.array([]),
         request_param_mapping: this.fb.array([]),
         body_mapping: this.fb.array([]),
         response_extract_path: ['data'],
+        contentType: ['application/json']
       }),
       transformation_pipeline: this.fb.array([]),
       destination: this.fb.group({
-        type: ['', Validators.required],
-        url: ['', Validators.required],
-        username: ['', Validators.required],
-        password: [''],
-        table: ['', Validators.required],
+        type: ['', Validators.required], // ĐỂ TRỐNG ĐỂ CHỌN TỪ GALLERY
+        url: ['jdbc:postgresql://171.254.95.51:5432/kestra?currentSchema=test_data', Validators.required],
+        username: ['cbtt', Validators.required],
+        password: ['cbtt@#2023'],
+        table: ['thong_ke_tram_do_mua', Validators.required],
         columns: this.fb.array([]),
-        upsert_key: [''],
-        update_time_field: [''],
-      }),
+        upsert_key: ['station_id, time_point'],
+        update_time_field: ['updated_date']
+      })
     });
   }
 
-  //   initForm() {
-  //     this.flowForm = this.fb.group({
-  //       flow_metadata: this.fb.group({
-  //         id: ['fetch-and-upsert-data-tram-do-mua', Validators.required],
-  //         namespace: ['company.team', Validators.required],
-  //         description: ['Fetch trạm đo mưa mỗi 10p']
-  //       }),
-  //       trigger: this.fb.group({
-  //         cron: ['*/10 * * * *', Validators.required]
-  //       }),
-  //       auth_provider: [null],
-  //       source: this.fb.group({
-  //         type: ['REST_API', Validators.required],
-  //         url: ['https://vwater-open.vrain.vn/v1/stations/stats', Validators.required],
-  //         method: ['GET', Validators.required],
-  //         contentType: ['application/json'],
-  //         headers: this.fb.array([
-  //           this.createHeaderGroup('x-api-key', 'af739005ab314cc7b547452595e6b2ce')
-  //         ]),
-  //         request_param_mapping: this.fb.array([
-  //           this.createRequestParamGroup('start_time', 'datetime_expression', 'now', -6, 'HOURS', 'yyyy-MM-dd HH:00:00'),
-  //           this.createRequestParamGroup('end_time', 'datetime_expression', 'now', 0, 'HOURS', 'yyyy-MM-dd HH:00:00')
-  //         ]),
-  //         body_mapping: this.fb.array([]),
-  //         response_extract_path: ['data']
-  //       }),
-  //       transformation_pipeline: this.fb.array([
-  //         this.createTransformGroup('flatten', { root_path: 'data', expand_array: 'values', carry_forward: ['station_id'] }),
-  //         this.createTransformGroup('filter', { condition: "item['depth'] > 0" }),
-  //         this.createTransformGroup('calculate', { new_field: 'depth_cm', formula: "item['depth'] * 100" })
-  //       ]),
-  //       destination: this.fb.group({
-  //         type: ['POSTGRESQL', Validators.required],
-  //         url: ['jdbc:postgresql://171.254.95.51:5432/kestra?currentSchema=test_data', Validators.required],
-  //         username: ['cbtt', Validators.required],
-  //         password: ['cbtt@#2023'],
-  //         table: ['thong_ke_tram_do_mua', Validators.required],
-  //         columns: this.fb.array([
-  //           this.createColumnGroup('station_id', 'character varying', 'station_id'),
-  //           this.createColumnGroup('time_point', 'timestamp', 'time_point'),
-  //           this.createColumnGroup('depth', 'float', 'depth'),
-  //           this.createColumnGroup('depth_cm', 'float', 'depth_cm')
-  //         ]),
-  //         upsert_key: ['station_id, time_point'],
-  //         update_time_field: ['updated_date']
-  //       })
-  //     });
-  //   }
+  private fillSampleData() {
+    // 1. Headers (Source) - Theo template.json
+    this.sourceHeaders.push(this.fb.group({
+      key: ['x-api-key'],
+      value: ['af739005ab314cc7b547452595e6b2ce']
+    }));
+
+    // 2. Request Params Mapping (Source) - Theo template.json
+    const params = [
+      { field: 'start_time', offset: -6 },
+      { field: 'end_time', offset: 0 }
+    ];
+    params.forEach(p => {
+      this.requestParams.push(this.fb.group({
+        field: [p.field],
+        type: ['datetime_expression'],
+        logic: this.fb.group({
+          base: ['now'],
+          offset_value: [p.offset],
+          offset_unit: ['HOURS'],
+          format: ['yyyy-MM-dd HH:00:00']
+        })
+      }));
+    });
+
+    // 3. Transformation Pipeline - Theo template.json
+    this.transforms.push(this.fb.group({
+      action: ['flatten'],
+      params: [JSON.stringify({
+        root_path: "data",
+        expand_array: "values",
+        carry_forward: ["station_id"]
+      }, null, 2)]
+    }));
+    this.transforms.push(this.fb.group({
+      action: ['filter'],
+      params: [JSON.stringify({ condition: "item['depth'] > 0" }, null, 2)]
+    }));
+
+    // 4. Columns Mapping (Destination) - Theo template.json
+    const columns = [
+      { name: 'station_id', type: 'character varying', mapping: 'station_id' },
+      { name: 'time_point', type: 'timestamp', mapping: 'time_point' },
+      { name: 'depth', type: 'float', mapping: 'depth' },
+      { name: 'depth_cm', type: 'float', mapping: 'depth_cm' }
+    ];
+    columns.forEach(col => this.destColumns.push(this.fb.group(col)));
+  }
+
+    // initForm() {
+    //   this.flowForm = this.fb.group({
+    //     flow_metadata: this.fb.group({
+    //       id: ['fetch-and-upsert-data-tram-do-mua', Validators.required],
+    //       namespace: ['company.team', Validators.required],
+    //       description: ['Fetch trạm đo mưa mỗi 10p']
+    //     }),
+    //     trigger: this.fb.group({
+    //       cron: ['*/10 * * * *', Validators.required]
+    //     }),
+    //     auth_provider: [null],
+    //     source: this.fb.group({
+    //       type: ['REST_API', Validators.required],
+    //       url: ['https://vwater-open.vrain.vn/v1/stations/stats', Validators.required],
+    //       method: ['GET', Validators.required],
+    //       contentType: ['application/json'],
+    //       headers: this.fb.array([
+    //         this.createHeaderGroup('x-api-key', 'af739005ab314cc7b547452595e6b2ce')
+    //       ]),
+    //       request_param_mapping: this.fb.array([
+    //         this.createRequestParamGroup('start_time', 'datetime_expression', 'now', -6, 'HOURS', 'yyyy-MM-dd HH:00:00'),
+    //         this.createRequestParamGroup('end_time', 'datetime_expression', 'now', 0, 'HOURS', 'yyyy-MM-dd HH:00:00')
+    //       ]),
+    //       body_mapping: this.fb.array([]),
+    //       response_extract_path: ['data']
+    //     }),
+    //     transformation_pipeline: this.fb.array([
+    //       this.createTransformGroup('flatten', { root_path: 'data', expand_array: 'values', carry_forward: ['station_id'] }),
+    //       this.createTransformGroup('filter', { condition: "item['depth'] > 0" }),
+    //       this.createTransformGroup('calculate', { new_field: 'depth_cm', formula: "item['depth'] * 100" })
+    //     ]),
+    //     destination: this.fb.group({
+    //       type: ['POSTGRESQL', Validators.required],
+    //       url: ['jdbc:postgresql://171.254.95.51:5432/kestra?currentSchema=test_data', Validators.required],
+    //       username: ['cbtt', Validators.required],
+    //       password: ['cbtt@#2023'],
+    //       table: ['thong_ke_tram_do_mua', Validators.required],
+    //       columns: this.fb.array([
+    //         this.createColumnGroup('station_id', 'character varying', 'station_id'),
+    //         this.createColumnGroup('time_point', 'timestamp', 'time_point'),
+    //         this.createColumnGroup('depth', 'float', 'depth'),
+    //         this.createColumnGroup('depth_cm', 'float', 'depth_cm')
+    //       ]),
+    //       upsert_key: ['station_id, time_point'],
+    //       update_time_field: ['updated_date']
+    //     })
+    //   });
+    // }
 
   // --- Helpers khởi tạo FormGroup cho FormArray ---
   createHeaderGroup(key = '', value = '') {
