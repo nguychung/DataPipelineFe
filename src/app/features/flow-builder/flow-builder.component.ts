@@ -13,6 +13,8 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { ConnectorGalleryComponent } from '../../shared/connector-gallery/connector-gallery.component';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { Router } from '@angular/router';
+import { FlowService } from '../../core/services/flow.service';
+import { NzMessageService } from 'ng-zorro-antd/message';
 
 @Component({
   selector: 'app-flow-builder',
@@ -35,7 +37,10 @@ import { Router } from '@angular/router';
 export class FlowBuilderComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
+  private flowService = inject(FlowService);
+  private message = inject(NzMessageService);
 
+  isSubmitting = false;
   flowForm!: FormGroup;
   currentStep = 0;
 
@@ -45,14 +50,14 @@ export class FlowBuilderComponent implements OnInit {
 
   ngOnInit() {
     this.initForm();
-    this.fillSampleData();
+    // this.fillSampleData();
   }
   initForm() {
     this.flowForm = this.fb.group({
       flow_metadata: this.fb.group({
-        id: ['fetch-and-upsert-data-tram-do-mua', Validators.required],
-        namespace: ['company.team', Validators.required],
-        description: ['Fetch trạm đo mưa mỗi 10 phút'],
+        id: ['', Validators.required],
+        namespace: ['', Validators.required],
+        description: [''],
       }),
       trigger: this.fb.group({
         value: [10, [Validators.required, Validators.min(1)]], // Số lượng
@@ -60,7 +65,7 @@ export class FlowBuilderComponent implements OnInit {
       }),
       source: this.fb.group({
         type: ['', Validators.required], // ĐỂ TRỐNG ĐỂ CHỌN TỪ GALLERY
-        url: ['https://vwater-open.vrain.vn/v1/stations/stats', Validators.required],
+        url: ['', Validators.required],
         method: ['GET', Validators.required],
         headers: this.fb.array([]),
         request_param_mapping: this.fb.array([]),
@@ -72,15 +77,15 @@ export class FlowBuilderComponent implements OnInit {
       destination: this.fb.group({
         type: ['', Validators.required], // ĐỂ TRỐNG ĐỂ CHỌN TỪ GALLERY
         url: [
-          'jdbc:postgresql://171.254.95.51:5432/kestra?currentSchema=test_data',
+          '',
           Validators.required,
         ],
-        username: ['cbtt', Validators.required],
-        password: ['cbtt@#2023'],
-        table: ['thong_ke_tram_do_mua', Validators.required],
+        username: ['', Validators.required],
+        password: [''],
+        table: ['', Validators.required],
         columns: this.fb.array([]),
-        upsert_key: ['station_id, time_point'],
-        update_time_field: ['updated_date'],
+        upsert_key: [],
+        update_time_field: [],
       }),
     });
   }
@@ -148,60 +153,6 @@ export class FlowBuilderComponent implements OnInit {
     columns.forEach((col) => this.destColumns.push(this.fb.group(col)));
   }
 
-  // initForm() {
-  //   this.flowForm = this.fb.group({
-  //     flow_metadata: this.fb.group({
-  //       id: ['fetch-and-upsert-data-tram-do-mua', Validators.required],
-  //       namespace: ['company.team', Validators.required],
-  //       description: ['Fetch trạm đo mưa mỗi 10p']
-  //     }),
-  //     trigger: this.fb.group({
-  //       cron: ['*/10 * * * *', Validators.required]
-  //     }),
-  //     auth_provider: [null],
-  //     source: this.fb.group({
-  //       type: ['REST_API', Validators.required],
-  //       url: ['https://vwater-open.vrain.vn/v1/stations/stats', Validators.required],
-  //       method: ['GET', Validators.required],
-  //       contentType: ['application/json'],
-  //       headers: this.fb.array([
-  //         this.createHeaderGroup('x-api-key', 'af739005ab314cc7b547452595e6b2ce')
-  //       ]),
-  //       request_param_mapping: this.fb.array([
-  //         this.createRequestParamGroup('start_time', 'datetime_expression', 'now', -6, 'HOURS', 'yyyy-MM-dd HH:00:00'),
-  //         this.createRequestParamGroup('end_time', 'datetime_expression', 'now', 0, 'HOURS', 'yyyy-MM-dd HH:00:00')
-  //       ]),
-  //       body_mapping: this.fb.array([]),
-  //       response_extract_path: ['data']
-  //     }),
-  //     transformation_pipeline: this.fb.array([
-  //       this.createTransformGroup('flatten', { root_path: 'data', expand_array: 'values', carry_forward: ['station_id'] }),
-  //       this.createTransformGroup('filter', { condition: "item['depth'] > 0" }),
-  //       this.createTransformGroup('calculate', { new_field: 'depth_cm', formula: "item['depth'] * 100" })
-  //     ]),
-  //     destination: this.fb.group({
-  //       type: ['POSTGRESQL', Validators.required],
-  //       url: ['jdbc:postgresql://171.254.95.51:5432/kestra?currentSchema=test_data', Validators.required],
-  //       username: ['cbtt', Validators.required],
-  //       password: ['cbtt@#2023'],
-  //       table: ['thong_ke_tram_do_mua', Validators.required],
-  //       columns: this.fb.array([
-  //         this.createColumnGroup('station_id', 'character varying', 'station_id'),
-  //         this.createColumnGroup('time_point', 'timestamp', 'time_point'),
-  //         this.createColumnGroup('depth', 'float', 'depth'),
-  //         this.createColumnGroup('depth_cm', 'float', 'depth_cm')
-  //       ]),
-  //       upsert_key: ['station_id, time_point'],
-  //       update_time_field: ['updated_date']
-  //     })
-  //   });
-  // }
-
-  // --- Helpers khởi tạo FormGroup cho FormArray ---
-  createHeaderGroup(key = '', value = '') {
-    return this.fb.group({ key: [key, Validators.required], value: [value, Validators.required] });
-  }
-
   // Set Type và ẩn Gallery
   setSourceType(type: string) {
     this.flowForm.get('source.type')?.setValue(type);
@@ -236,26 +187,6 @@ export class FlowBuilderComponent implements OnInit {
       default:
         return '';
     }
-  }
-
-  createRequestParamGroup(
-    field = '',
-    type = '',
-    base = '',
-    offset_value = 0,
-    offset_unit = '',
-    format = '',
-  ) {
-    return this.fb.group({
-      field: [field],
-      type: [type],
-      logic: this.fb.group({
-        base: [base],
-        offset_value: [offset_value],
-        offset_unit: [offset_unit],
-        format: [format],
-      }),
-    });
   }
 
   createMappingGroup(data: any = null) {
@@ -341,30 +272,56 @@ export class FlowBuilderComponent implements OnInit {
   }
 
   onSubmit() {
-    if (this.flowForm.valid) {
-      const raw = this.flowForm.getRawValue();
-      const finalPayload = {
-        ...raw,
-        // Ghi đè trường trigger bằng mã Cron thay vì object value/unit
-        trigger: {
-          cron: this.convertToCron(raw.trigger.value, raw.trigger.unit),
-        },
-        source: { ...raw.source, headers: this.parseHeaders(raw.source.headers) },
-        transformation_pipeline: raw.transformation_pipeline.map((t: any) => ({
-          action: t.action,
-          params: JSON.parse(t.params || '{}'),
-        })),
-        destination: {
-          ...raw.destination,
-          upsert_key: raw.destination.upsert_key ? raw.destination.upsert_key.split(',') : [],
-        },
-      };
-      console.log('JSON OUTPUT:', finalPayload);
-      this.router.navigate(['/flows']);
-    } else {
-      // Thông báo cho người dùng
-      alert('Vui lòng điền đầy đủ các trường bắt buộc!');
+    if (this.flowForm.invalid) {
+      this.markFormGroupDirty(this.flowForm);
+      this.message.warning('Vui lòng hoàn thiện các trường bắt buộc!');
+      return;
     }
+
+    // 2. Bật trạng thái loading
+    this.isSubmitting = true;
+
+    const raw = this.flowForm.getRawValue();
+    const payload = {
+      ...raw,
+      // Ghi đè trường trigger bằng mã Cron thay vì object value/unit
+      trigger: {
+        cron: this.convertToCron(raw.trigger.value, raw.trigger.unit),
+      },
+      source: { ...raw.source, headers: this.parseHeaders(raw.source.headers) },
+      transformation_pipeline: raw.transformation_pipeline.map((t: any) => ({
+        action: t.action,
+        params: JSON.parse(t.params || '{}'),
+      })),
+      destination: {
+        ...raw.destination,
+        upsert_key: raw.destination.upsert_key ? raw.destination.upsert_key.split(',') : [],
+      },
+    };
+    console.log('JSON OUTPUT:', payload);
+
+    const finalPayload = {
+      flowId: raw.flow_metadata.id,
+      description: raw.flow_metadata.description,
+      namespace: raw.flow_metadata.namespace,
+      // Stringify object bên trên thành chuỗi JSON
+      json: JSON.stringify(payload, null, 2),
+    };
+
+    // 4. Gọi API Save
+    this.flowService.saveFlow(finalPayload).subscribe({
+      next: (response) => {
+        this.message.success('Save Flow successfully!');
+        this.isSubmitting = false;
+        // 5. Điều hướng về trang danh sách
+        this.router.navigate(['/flows']);
+      },
+      error: (err) => {
+        console.error('Save error:', err);
+        this.message.error('Lỗi khi lưu: ' + (err.error?.message || 'Server Error'));
+        this.isSubmitting = false;
+      }
+    });
   }
 
   private parseHeaders(arr: any[]) {
@@ -373,5 +330,16 @@ export class FlowBuilderComponent implements OnInit {
       if (h.key) obj[h.key] = h.value;
     });
     return obj;
+  }
+
+  private markFormGroupDirty(formGroup: any) {
+    Object.values(formGroup.controls).forEach((control: any) => {
+      if (control.controls) {
+        this.markFormGroupDirty(control);
+      } else {
+        control.markAsDirty();
+        control.updateValueAndValidity();
+      }
+    });
   }
 }

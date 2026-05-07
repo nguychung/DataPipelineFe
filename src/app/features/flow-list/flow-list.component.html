@@ -1,0 +1,29 @@
+<div>
+  <div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold">Flows</h2>
+    <button nz-button nzType="primary" routerLink="/flows/create">
+      <span nz-icon nzType="plus"></span> Create
+    </button>
+  </div>
+  <nz-table #ajaxTable [nzData]="flows" [nzShowSizeChanger]="false" [nzFrontPagination]="false" [nzTotal]="total" [(nzPageIndex)]="pageIndex"
+    [(nzPageSize)]="pageSize" (nzPageIndexChange)="loadDataFromServer($event, pageSize)"
+    (nzPageSizeChange)="loadDataFromServer(pageIndex, $event)" [nzLoading]="loading">
+    <thead>
+      <tr>
+        <th>Flow ID</th>
+        <th>Namespace</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let data of ajaxTable.data">
+        <td>
+          <b>{{ data?.id }}</b>
+        </td>
+        <td>{{ data?.namespace }}</td>
+      </tr>
+    </tbody>
+  </nz-table>
+  <ng-template #totalTemplate let-total>
+    <span class="text-gray-500">Tổng cộng: <b>{{ total }}</b> flows</span>
+  </ng-template>
+</div>
