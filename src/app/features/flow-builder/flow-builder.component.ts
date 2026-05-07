@@ -90,6 +90,10 @@ export class FlowBuilderComponent implements OnInit {
     });
   }
 
+
+
+
+
   private fillSampleData() {
     // 1. Headers (Source) - Theo template.json
     this.sourceHeaders.push(
@@ -155,13 +159,21 @@ export class FlowBuilderComponent implements OnInit {
 
   // Set Type và ẩn Gallery
   setSourceType(type: string) {
-    this.flowForm.get('source.type')?.setValue(type);
-    this.isSourceGalleryVisible = false;
+    if (type !== 'REST_API') {
+      this.message.info('Chức năng đang phát triển!');
+    } else {
+      this.flowForm.get('source.type')?.setValue(type);
+      this.isSourceGalleryVisible = false;
+    }
   }
 
   setDestType(type: string) {
-    this.flowForm.get('destination.type')?.setValue(type);
-    this.isDestGalleryVisible = false;
+    if (type !== 'POSTGRESQL') {
+      this.message.info('Chức năng đang phát triển!');
+    } else {
+      this.flowForm.get('destination.type')?.setValue(type);
+      this.isDestGalleryVisible = false;
+    }
   }
 
   // Mở lại Gallery nếu muốn chọn lại
