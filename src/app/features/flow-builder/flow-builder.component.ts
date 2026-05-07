@@ -52,6 +52,7 @@ export class FlowBuilderComponent implements OnInit {
     this.initForm();
     // this.fillSampleData();
   }
+
   initForm() {
     this.flowForm = this.fb.group({
       flow_metadata: this.fb.group({
@@ -60,26 +61,23 @@ export class FlowBuilderComponent implements OnInit {
         description: [''],
       }),
       trigger: this.fb.group({
-        value: [10, [Validators.required, Validators.min(1)]], // Số lượng
-        unit: ['MINUTES', Validators.required], // Đơn vị: MINUTES hoặc HOURS
+        value: [10, [Validators.required, Validators.min(1)]],
+        unit: ['MINUTES', Validators.required],
       }),
       source: this.fb.group({
-        type: ['', Validators.required], // ĐỂ TRỐNG ĐỂ CHỌN TỪ GALLERY
+        type: ['', Validators.required],
         url: ['', Validators.required],
         method: ['GET', Validators.required],
         headers: this.fb.array([]),
         request_param_mapping: this.fb.array([]),
-        body_mapping: this.fb.array([]),
+        body_mapping: this.fb.array([]), // Mảng chính chúng ta đang xử lý
         response_extract_path: ['data'],
         contentType: ['application/json'],
       }),
       transformation_pipeline: this.fb.array([]),
       destination: this.fb.group({
-        type: ['', Validators.required], // ĐỂ TRỐNG ĐỂ CHỌN TỪ GALLERY
-        url: [
-          '',
-          Validators.required,
-        ],
+        type: ['', Validators.required],
+        url: ['', Validators.required],
         username: ['', Validators.required],
         password: [''],
         table: ['', Validators.required],
@@ -90,9 +88,31 @@ export class FlowBuilderComponent implements OnInit {
     });
   }
 
+  // Hàm tạo item với đầy đủ 4 trường trong logic
+  createMappingItem(): FormGroup {
+    return this.fb.group({
+      field: ['', Validators.required],
+      type: ['string'],
+      value: [''], // Dùng cho type 'string' hoặc 'number'
 
+      // Logic cho datetime_expression với 4 trường bạn yêu cầu
+      logic: this.fb.group({
+        base: ['now'], // 1. Base
+        offset_value: [-6], // 2. Offset (giá trị số)
+        offset_unit: ['HOURS'], // 3. Unit (HOURS, DAYS, MINUTES...)
+        format: ['dd/MM/yyyy HH:00'], // 4. Format
+      }),
+    });
+  }
 
+  // Getters để truy cập FormArray nhanh từ HTML
+  get bodyMappingArray(): FormArray {
+    return this.flowForm.get('source.body_mapping') as FormArray;
+  }
 
+  get paramMappingArray(): FormArray {
+    return this.flowForm.get('source.request_param_mapping') as FormArray;
+  }
 
   private fillSampleData() {
     // 1. Headers (Source) - Theo template.json
@@ -250,11 +270,17 @@ export class FlowBuilderComponent implements OnInit {
     this.sourceHeaders.removeAt(i);
   }
   removeRequestParam(i: number) {
-    this.requestParams.removeAt(i);
+    this.paramMappingArray.removeAt(i);
   }
-  removeBodyMapping(i: number) {
-    this.bodyMappings.removeAt(i);
+
+  addBodyMapping() {
+    this.bodyMappingArray.push(this.createMappingItem());
   }
+
+  removeBodyMapping(index: number) {
+    this.bodyMappingArray.removeAt(index);
+  }
+
   addTransform() {
     this.transforms.push(this.fb.group({ action: ['flatten'], params: ['{}'] }));
   }
@@ -270,10 +296,7 @@ export class FlowBuilderComponent implements OnInit {
     this.destColumns.removeAt(i);
   }
   addRequestParam() {
-    this.requestParams.push(this.createMappingGroup());
-  }
-  addBodyMapping() {
-    this.bodyMappings.push(this.createMappingGroup());
+    this.paramMappingArray.push(this.createMappingItem());
   }
 
   next() {
@@ -294,13 +317,61 @@ export class FlowBuilderComponent implements OnInit {
     this.isSubmitting = true;
 
     const raw = this.flowForm.getRawValue();
+
+    const formattedParamMapping = raw.source.request_param_mapping.map((item: any) => {
+      if (item.type === 'datetime_expression') {
+        return {
+          field: item.field,
+          type: 'datetime_expression',
+          logic: {
+            base: item.logic.base,
+            offset_value: item.logic.offset_value,
+            offset_unit: item.logic.offset_unit,
+            format: item.logic.format,
+          },
+        };
+      } else {
+        return {
+          field: item.field,
+          type: 'constant',
+          value: item.value,
+        };
+      }
+    });
+
+    const formattedBodyMapping = raw.source.body_mapping.map((item: any) => {
+      if (item.type === 'datetime_expression') {
+        return {
+          field: item.field,
+          type: 'datetime_expression',
+          logic: {
+            base: item.logic.base,
+            offset_value: item.logic.offset_value,
+            offset_unit: item.logic.offset_unit,
+            format: item.logic.format,
+          },
+        };
+      } else {
+        return {
+          field: item.field,
+          type: 'constant',
+          value: item.type === 'number' ? Number(item.value) : item.value,
+        };
+      }
+    });
+
     const payload = {
       ...raw,
       // Ghi đè trường trigger bằng mã Cron thay vì object value/unit
       trigger: {
         cron: this.convertToCron(raw.trigger.value, raw.trigger.unit),
       },
-      source: { ...raw.source, headers: this.parseHeaders(raw.source.headers) },
+      source: {
+        ...raw.source,
+        headers: this.parseHeaders(raw.source.headers),
+        request_param_mapping: formattedParamMapping,
+        body_mapping: formattedBodyMapping,
+      },
       transformation_pipeline: raw.transformation_pipeline.map((t: any) => ({
         action: t.action,
         params: JSON.parse(t.params || '{}'),
@@ -332,7 +403,7 @@ export class FlowBuilderComponent implements OnInit {
         console.error('Save error:', err);
         this.message.error('Lỗi khi lưu: ' + (err.error?.message || 'Server Error'));
         this.isSubmitting = false;
-      }
+      },
     });
   }
 
