@@ -9,3 +9,9 @@
 .ant-select-dropdown {
   min-width: 80px;
 }
+
+nz-sider > .ant-layout-sider-children {
+  position: fixed;
+  top: 0;
+  width: 200px;
+}

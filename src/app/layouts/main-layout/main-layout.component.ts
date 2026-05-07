@@ -16,13 +16,17 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
           <span class="text-purple-400">●</span> LOGO
         </div>
         <ul nz-menu nzTheme="dark" nzMode="inline">
+          <li nz-menu-item>
+            <span nz-icon nzType="dashboard"></span>
+            <span>Dashboards</span>
+          </li>
           <li nz-menu-item nzSelected routerLink="/flows">
             <span nz-icon nzType="deployment-unit"></span>
             <span>Flows</span>
           </li>
           <li nz-menu-item>
-            <span nz-icon nzType="dashboard"></span>
-            <span>Dashboards</span>
+            <span nz-icon nzType="deployment-unit"></span>
+            <span>Namespaces</span>
           </li>
         </ul>
       </nz-sider>
@@ -32,6 +36,6 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
         </nz-content>
       </nz-layout>
     </nz-layout>
-  `
+  `,
 })
 export class MainLayoutComponent {}
