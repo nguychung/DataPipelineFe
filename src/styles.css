@@ -1,3 +1,17 @@
 /* You can add global styles to this file, and also import other style files */
 
 @import 'tailwindcss';
+
+.ant-layout {
+  min-height: 100vh;
+}
+
+.ant-select-dropdown {
+  min-width: 80px;
+}
+
+nz-sider > .ant-layout-sider-children {
+  position: fixed;
+  top: 0;
+  width: 200px;
+}
