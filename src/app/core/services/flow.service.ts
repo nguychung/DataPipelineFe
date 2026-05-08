@@ -29,9 +29,9 @@ export class FlowService {
 
   //
   
-  getToken(authConfig: any): Observable<string> {
+  getToken(authConfig: any, token_extract_path: string): Observable<string> {
     console.log('🚀 chungnm2 ~ flow.service.ts ~ authConfig:', authConfig);
-    const { url, method, headers, body, token_extract_path } = authConfig;
+    const { url, method, headers, body } = authConfig;
 
     // 1. Chuyển đổi headers từ Array [{key, value}] sang Object {key: value}
     const httpHeaders: any = {};
@@ -87,19 +87,13 @@ export class FlowService {
       );
   }
 
-  /**
-   * Hàm bổ trợ để lấy giá trị từ object theo đường dẫn (dot notation)
-   * Ví dụ: path "data.access_token" sẽ lấy res['data']['access_token']
-   */
-  private getValueByPath(obj: any, path: string): string {
-    if (!obj || !path) return '';
+private getValueByPath(obj: any, path: string): any {
+  if (!obj || !path) return '';
 
-    // nếu path bắt đầu bằng "data."
-    // thì bỏ đi
-    const normalizedPath = path.startsWith('data.') ? path.replace(/^data\./, '') : path;
-
-    return normalizedPath.split('.').reduce((acc, part) => acc?.[part], obj);
-  }
+  return path
+    .split('.')
+    .reduce((acc, part) => acc?.[part], obj);
+}
 
   /**
    * Hàm tính toán thời gian dựa trên logic base, offset
@@ -121,7 +115,8 @@ export class FlowService {
 
 
 
-  callMainApi(token: string, sourceConfig: any): Observable<any> {
+  callMainApi(token: string, sourceConfig: any, token_extract_path: string): Observable<any> {
+    console.log("🚀 chungnm2 ~ flow.service.ts ~ token_extract_path:", token_extract_path)
     const { url, method, headers, request_param_mapping, body_mapping } = sourceConfig;
     console.log("🚀 chungnm2 ~ flow.service.ts ~ token:", token)
     console.log("🚀 chungnm2 ~ flow.service.ts ~ sourceConfig:", sourceConfig)

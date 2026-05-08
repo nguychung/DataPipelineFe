@@ -16,6 +16,7 @@ import { Router } from '@angular/router';
 import { FlowService } from '../../core/services/flow.service';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { switchMap } from 'rxjs';
+import { NzSpinModule } from 'ng-zorro-antd/spin';
 
 @Component({
   selector: 'app-flow-builder',
@@ -32,6 +33,7 @@ import { switchMap } from 'rxjs';
     NzCardModule,
     NzIconModule,
     NzInputNumberModule,
+    NzSpinModule
   ],
   templateUrl: './flow-builder.component.html',
 })
@@ -95,7 +97,7 @@ export class FlowBuilderComponent implements OnInit {
           headers: this.fb.array([]),
           param: this.fb.array([]),
           body: this.fb.array([]),
-          token_extract_path: ['data.access_token'],
+          token_extract_path: [],
           auth_type: ['Bearer'],
         }),
       }),
@@ -287,6 +289,10 @@ export class FlowBuilderComponent implements OnInit {
     return this.flowForm.get('source.auth_provider.headers') as FormArray;
   }
 
+  get sourceAuthTokenExtract() {
+    return this.flowForm.get('source.auth_provider.token_extract_path') as FormArray;
+  }
+
   get requestParams() {
     return this.flowForm.get('source.request_param_mapping') as FormArray;
   }
@@ -307,7 +313,7 @@ export class FlowBuilderComponent implements OnInit {
 
   addHeaderToken() {
     this.sourceHeaders.push(
-      this.fb.group({ key: ['Authorization'], value: ['data.access_token'] }),
+      this.fb.group({ key: ['Authorization'], value: ['token'] }),
     );
   }
 
@@ -379,8 +385,13 @@ export class FlowBuilderComponent implements OnInit {
   testConnection() {
     this.isLoadingTest = true;
     const authConfig = this.flowForm.getRawValue().source.auth_provider;
+    console.log("🚀 chungnm2 ~ flow-builder.component.ts ~ authConfig:", authConfig)
 
     const sourceData = this.flowForm.getRawValue().source;
+    console.log("🚀 chungnm2 ~ flow-builder.component.ts ~ sourceData:", sourceData)
+
+    const token_extract_path = sourceData.headers.find((h: any) => h.key === 'Authorization')?.value;
+    console.log("🚀 chungnm2 ~ flow-builder.component.ts ~ token_extract_path:", token_extract_path)
 
     // Gọi api get token
 
@@ -390,14 +401,14 @@ export class FlowBuilderComponent implements OnInit {
       // Luồng xử lý: Nếu có Auth -> Lấy Token -> Gọi API chính. Nếu không -> Gọi API chính luôn.
       const connection$ =
         this.showAuthProvider && sourceData.auth_provider?.url
-          ? this.flowService.getToken(sourceData.auth_provider).pipe(
+          ? this.flowService.getToken(sourceData.auth_provider, token_extract_path).pipe(
               switchMap((token) => {
                 console.log('🚀 chungnm2 ~ flow-builder.component.ts ~ token:', token);
                 // this.message.success('Auth successful, calling main API...');
-                return this.flowService.callMainApi(token, sourceData);
+                return this.flowService.callMainApi(token, sourceData, token_extract_path);
               }),
             )
-          : this.flowService.callMainApi('', sourceData);
+          : this.flowService.callMainApi('', sourceData, token_extract_path);
 
       connection$.subscribe({
         next: (res) => {
@@ -429,6 +440,51 @@ export class FlowBuilderComponent implements OnInit {
     this.isSubmitting = true;
 
     const raw = this.flowForm.getRawValue();
+
+    const { auth_provider, ...sourceWithoutAuth } = raw.source;
+    console.log('🚀 chungnm2 ~ flow-builder.component.ts ~ raw.source:', raw.source);
+
+    const formattedAuthParamMapping = raw.source.auth_provider.param.map((item: any) => {
+      if (item.type === 'datetime_expression') {
+        return {
+          field: item.field,
+          type: 'datetime_expression',
+          logic: {
+            base: item.logic.base,
+            offset_value: item.logic.offset_value,
+            offset_unit: item.logic.offset_unit,
+            format: item.logic.format,
+          },
+        };
+      } else {
+        return {
+          field: item.field,
+          type: 'constant',
+          value: item.value,
+        };
+      }
+    });
+
+    const formattedAuthBodyMapping = raw.source.auth_provider.body.map((item: any) => {
+      if (item.type === 'datetime_expression') {
+        return {
+          field: item.field,
+          type: 'datetime_expression',
+          logic: {
+            base: item.logic.base,
+            offset_value: item.logic.offset_value,
+            offset_unit: item.logic.offset_unit,
+            format: item.logic.format,
+          },
+        };
+      } else {
+        return {
+          field: item.field,
+          type: 'constant',
+          value: item.value,
+        };
+      }
+    });
 
     const formattedParamMapping = raw.source.request_param_mapping.map((item: any) => {
       if (item.type === 'datetime_expression') {
@@ -478,8 +534,14 @@ export class FlowBuilderComponent implements OnInit {
       trigger: {
         cron: this.convertToCron(raw.trigger.value, raw.trigger.unit),
       },
+      auth_provider: {
+        ...auth_provider,
+        token_extract_path: raw.source.headers.find((h: any) => h.key === 'Authorization')?.value,
+        param: formattedAuthParamMapping,
+        body: formattedAuthBodyMapping,
+      },
       source: {
-        ...raw.source,
+        ...sourceWithoutAuth,
         headers: this.parseHeaders(raw.source.headers),
         request_param_mapping: formattedParamMapping,
         body_mapping: formattedBodyMapping,
@@ -510,11 +572,13 @@ export class FlowBuilderComponent implements OnInit {
         this.isSubmitting = false;
         // 5. Điều hướng về trang danh sách
         this.router.navigate(['/flows']);
+        this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Save error:', err);
         this.message.error('Lỗi khi lưu: ' + (err.error?.message || 'Server Error'));
         this.isSubmitting = false;
+        this.cdr.detectChanges();
       },
     });
   }
@@ -522,7 +586,13 @@ export class FlowBuilderComponent implements OnInit {
   private parseHeaders(arr: any[]) {
     const obj: any = {};
     arr.forEach((h) => {
-      if (h.key) obj[h.key] = h.value;
+      if (h.key) {
+        if(this.showAuthProvider && h.key === 'Authorization') {
+          obj[h.key] = `{{ auth_provider.auth_type }} {{ outputs.[auth_provider.id].body.[auth_provider.token_extract_path] }}`; 
+        } else {
+          obj[h.key] = h.value;
+        }
+      }
     });
     return obj;
   }

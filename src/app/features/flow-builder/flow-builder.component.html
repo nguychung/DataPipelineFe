@@ -1,492 +1,495 @@
-<div class="max-w-6xl mx-auto p-8 bg-white rounded-xl shadow-sm mt-4">
-  <div class="flex justify-between items-center mb-8">
-    <h2 class="text-2xl font-bold text-gray-800">Setup Data Sync Flow</h2>
-    <!-- <button nz-button nzType="default" routerLink="/flows">Cancel</button> -->
-  </div>
 
-  <nz-steps [nzCurrent]="currentStep" class="!mb-10">
-    <nz-step nzTitle="General Info"></nz-step>
-    <nz-step nzTitle="Source Config"></nz-step>
-    <nz-step nzTitle="Transformations"></nz-step>
-    <nz-step nzTitle="Destination"></nz-step>
-  </nz-steps>
-
-  <form nz-form [formGroup]="flowForm" nzLayout="vertical">
-
-    <div *ngIf="currentStep === 0">
-      <div formGroupName="flow_metadata" class="grid grid-cols-2 gap-6">
-        <nz-form-item class="col-span-2">
-          <nz-form-label nzRequired>Flow ID</nz-form-label>
-          <nz-form-control><input nz-input formControlName="id"
-              placeholder="e.g., station-data-fetcher" /></nz-form-control>
-        </nz-form-item>
-
-        <nz-form-item>
-          <nz-form-label nzRequired>Namespace</nz-form-label>
-          <nz-form-control><input nz-input formControlName="namespace" placeholder="company.team" /></nz-form-control>
-        </nz-form-item>
-
-        <nz-form-item>
-          <nz-form-label>Description</nz-form-label>
-          <nz-form-control><textarea nz-input formControlName="description" rows="1"></textarea></nz-form-control>
-        </nz-form-item>
-      </div>
-
-      <div formGroupName="trigger" class="mt-4">
-        <nz-form-label nzRequired>Repeat Every</nz-form-label>
-        <nz-form-control>
-          <nz-input-group nzCompact>
-            <nz-input-number formControlName="value" [nzMin]="1" style="width: 10%;">
-            </nz-input-number>
-
-            <nz-select formControlName="unit" style="width: 10%;">
-              <nz-option nzValue="MINUTES" nzLabel="Minute(s)"></nz-option>
-              <nz-option nzValue="HOURS" nzLabel="Hour(s)"></nz-option>
-              <nz-option nzValue="DAYS" nzLabel="Day(s)"></nz-option>
-            </nz-select>
-          </nz-input-group>
-
-          <div class="mt-2 text-gray-400 text-xs italic">
-            Resulting Cron: {{ convertToCron(flowForm.get('trigger.value')?.value, flowForm.get('trigger.unit')?.value)
-            }}
-          </div>
-        </nz-form-control>
-      </div>
+<nz-spin [nzSpinning]="isSubmitting" nzTip="Đang lưu cấu hình flow..." [nzSize]="'large'">
+  <div class="max-w-6xl mx-auto p-8 bg-white rounded-xl shadow-sm mt-4">
+    <div class="flex justify-between items-center mb-8">
+      <h2 class="text-2xl font-bold text-gray-800">Setup Data Sync Flow</h2>
+      <!-- <button nz-button nzType="default" routerLink="/flows">Cancel</button> -->
     </div>
-
-    <div *ngIf="currentStep === 1" formGroupName="source">
-      <div *ngIf="isSourceGalleryVisible">
-        <label class="font-semibold block mb-4">Select Source Connector:</label>
-        <app-connector-gallery (onSelect)="setSourceType($event)"></app-connector-gallery>
-      </div>
-
-      <div *ngIf="!isSourceGalleryVisible" class="space-y-6">
-        <div class="flex justify-between items-center bg-blue-50 p-3 rounded">
-          <span class="text-blue-700 font-bold">Selected: {{flowForm.get('source.type')?.value}}</span>
-          <button nz-button nzType="link" (click)="showSourceGallery()">Change Connector</button>
-        </div>
-
-        <button class="!mb-4" nz-button nzType="default" (click)="showAuthProvider = !showAuthProvider">
-          {{ showAuthProvider ? 'Remove Auth Form' : 'Generate Auth Form' }}
-        </button>
-
-        <h2 *ngIf="showAuthProvider">Authentication</h2>
-
-        <div *ngIf="showAuthProvider" formGroupName="auth_provider"
-          class="p-6 border-2 border-dashed border-blue-200 rounded-xl bg-slate-50 space-y-6">
-
-          <h2>Authentication</h2>
-
-          <div class="grid grid-cols-4 gap-4">
-            <nz-form-item class="col-span-3">
-              <nz-form-label nzRequired>API URL</nz-form-label>
-              <nz-form-control><input nz-input formControlName="url" /></nz-form-control>
-            </nz-form-item>
-            <nz-form-item>
-              <nz-form-label nzRequired>Method</nz-form-label>
-              <nz-form-control>
-                <nz-select formControlName="method">
-                  <nz-option nzValue="GET" nzLabel="GET"></nz-option>
-                  <nz-option nzValue="POST" nzLabel="POST"></nz-option>
-                  <nz-option nzValue="PUT" nzLabel="PUT"></nz-option>
-                  <nz-option nzValue="DELETE" nzLabel="DELETE"></nz-option>
-                  <nz-option nzValue="PATCH" nzLabel="PATCH"></nz-option>
-                </nz-select>
-              </nz-form-control>
-            </nz-form-item>
-          </div>
-        
-          <nz-card nzTitle="Headers" nzSize="small" class="shadow-sm">
-            <div formArrayName="headers">
-              <div *ngFor="let h of sourceAuthHeaders.controls; let i=index" [formGroupName]="i" class="flex gap-2 mb-2">
-                <input nz-input formControlName="key" placeholder="Key (e.g. Authorization)" />
-                <input nz-input formControlName="value" placeholder="Value" />
-                <button nz-button nzType="text" nzDanger (click)="removeAuthHeader(i)">X</button>
-              </div>
-            </div>
-            <button nz-button nzType="dashed" class="w-full mt-2" (click)="addAuthHeader()">+ Add Auth Header</button>
-          </nz-card>
-        
-          <nz-card nzTitle="Request Params Mapping" nzSize="small" class="shadow-sm">
-            <div formArrayName="param" class="space-y-4">
-              <div *ngFor="let p of paramAuthMappingArray.controls; let i=index" [formGroupName]="i"
-                class="p-4 bg-gray-50 rounded border relative">
-                <button nz-button nzType="text" nzDanger class="!absolute top-2 right-2" (click)="removeAuthRequestParam(i)">
-                  X
-                </button>
-        
-                <div class="grid grid-cols-2 gap-4 mb-3">
-                  <div>
-                    <label class="text-xs font-semibold text-gray-500 uppercase">Field Name</label>
-                    <input nz-input formControlName="field" placeholder="e.g. payload_date" />
-                  </div>
-                  <div class="flex flex-col gap-1">
-                    <label class="text-xs font-semibold text-gray-500 uppercase">Type</label>
-                    <nz-select formControlName="type" style="width: 160px;">
-                      <nz-option nzValue="string" nzLabel="String"></nz-option>
-                      <nz-option nzValue="number" nzLabel="Number"></nz-option>
-                      <nz-option nzValue="datetime_expression" nzLabel="Datetime Exp"></nz-option>
-                    </nz-select>
-                  </div>
-                </div>
-        
-                <div *ngIf="p.get('type')?.value !== 'datetime_expression'">
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Value</label>
-                    <input nz-input formControlName="value" />
-                  </div>
-                </div>
-        
-                <div *ngIf="p.get('type')?.value === 'datetime_expression'" formGroupName="logic"
-                  class="grid grid-cols-4 gap-2">
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Base</label>
-                    <input nz-input formControlName="base" />
-                  </div>
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Offset</label>
-                    <nz-input-number formControlName="offset_value" class="w-full"></nz-input-number>
-                  </div>
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Unit</label>
-                    <nz-select formControlName="offset_unit" class="w-full">
-                      <nz-option nzValue="MINUTES" nzLabel="Minutes"></nz-option>
-                      <nz-option nzValue="HOURS" nzLabel="Hours"></nz-option>
-                      <nz-option nzValue="DAYS" nzLabel="Days"></nz-option>
-                      <nz-option nzValue="MONTHS" nzLabel="Months"></nz-option>
-                      <nz-option nzValue="YEARS" nzLabel="Years"></nz-option>
-                    </nz-select>
-                  </div>
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Format</label>
-                    <input nz-input formControlName="format" />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <button nz-button nzType="dashed" class="w-full mt-3" (click)="addAuthRequestParam()">+ Add Auth Param Mapping</button>
-          </nz-card>
-        
-          <nz-card nzTitle="Request Body Mapping" nzSize="small" class="shadow-sm mt-6">
-            <div formArrayName="body" class="space-y-4">
-              <div *ngFor="let item of bodyAuthMappingArray.controls; let i = index" [formGroupName]="i"
-                class="p-4 bg-gray-50 rounded border relative">
-                <button nz-button nzType="text" nzDanger class="!absolute top-2 right-2" (click)="removeAuthBodyMapping(i)">
-                  X
-                </button>
-        
-                <div class="grid grid-cols-2 gap-4 mb-3">
-                  <div>
-                    <label class="text-xs font-semibold text-gray-500 uppercase">Field Name</label>
-                    <input nz-input formControlName="field" placeholder="e.g. payload_date" />
-                  </div>
-                  <div class="flex flex-col gap-1">
-                    <label class="text-xs font-semibold text-gray-500 uppercase">Type</label>
-                    <nz-select formControlName="type" style="width: 160px;">
-                      <nz-option nzValue="string" nzLabel="String"></nz-option>
-                      <nz-option nzValue="number" nzLabel="Number"></nz-option>
-                      <nz-option nzValue="datetime_expression" nzLabel="Datetime Exp"></nz-option>
-                    </nz-select>
-                  </div>
-                </div>
-        
-                <div *ngIf="item.get('type')?.value !== 'datetime_expression'">
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Value</label>
-                    <input nz-input formControlName="value" />
-                  </div>
-                </div>
-        
-                <div *ngIf="item.get('type')?.value === 'datetime_expression'" formGroupName="logic"
-                  class="grid grid-cols-4 gap-2">
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Base</label>
-                    <input nz-input formControlName="base" />
-                  </div>
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Offset</label>
-                    <nz-input-number formControlName="offset_value" class="w-full"></nz-input-number>
-                  </div>
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Unit</label>
-                    <nz-select formControlName="offset_unit" class="w-full">
-                      <nz-option nzValue="MINUTES" nzLabel="Minutes"></nz-option>
-                      <nz-option nzValue="HOURS" nzLabel="Hours"></nz-option>
-                      <nz-option nzValue="DAYS" nzLabel="Days"></nz-option>
-                      <nz-option nzValue="MONTHS" nzLabel="Months"></nz-option>
-                      <nz-option nzValue="YEARS" nzLabel="Years"></nz-option>
-                    </nz-select>
-                  </div>
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Format</label>
-                    <input nz-input formControlName="format" />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <button nz-button nzType="dashed" class="w-full mt-3" (click)="addAuthBodyMapping()">+ Add Auth Body Field
-              Mapping</button>
-          </nz-card>
-        </div>
-
-        <!-- Auth Provider -->
-        <hr *ngIf="showAuthProvider" class="my-6">
-
-
-        <h2>Request</h2>
-        <div class="p-6 border-2 border-dashed border-blue-200 rounded-xl bg-slate-50 space-y-6">
-          <div class="grid grid-cols-4 gap-4">
-            <nz-form-item class="col-span-3">
-              <nz-form-label nzRequired>API URL</nz-form-label>
-              <nz-form-control><input nz-input formControlName="url" /></nz-form-control>
-            </nz-form-item>
-            <nz-form-item>
-              <nz-form-label nzRequired>Method</nz-form-label>
-              <nz-form-control>
-                <nz-select formControlName="method">
-                  <nz-option nzValue="GET" nzLabel="GET"></nz-option>
-                  <nz-option nzValue="POST" nzLabel="POST"></nz-option>
-                  <nz-option nzValue="PUT" nzLabel="PUT"></nz-option>
-                  <nz-option nzValue="DELETE" nzLabel="DELETE"></nz-option>
-                  <nz-option nzValue="PATCH" nzLabel="PATCH"></nz-option>
-                </nz-select>
-              </nz-form-control>
-            </nz-form-item>
-          </div>
-        
-          <nz-card nzTitle="Headers" nzSize="small" class="shadow-sm">
-            <div formArrayName="headers">
-              <div *ngFor="let h of sourceHeaders.controls; let i=index" [formGroupName]="i" class="flex gap-2 mb-2">
-                <input nz-input formControlName="key" placeholder="Key (e.g. Authorization)" />
-                <input nz-input formControlName="value" placeholder="Value" />
-                <button nz-button nzType="text" nzDanger (click)="removeHeader(i)">X</button>
-              </div>
-            </div>
-            <div class="flex">
-              <button nz-button nzType="dashed" class="w-full mt-2" (click)="addHeader()">+ Add Header</button>
-              <button nz-button nzType="dashed" class="w-full mt-2" (click)="addHeaderToken()">+ Add Header Token</button>
-            </div>
-
-          </nz-card>
-        
-          <nz-card nzTitle="Request Params Mapping" nzSize="small" class="shadow-sm">
-            <div formArrayName="request_param_mapping" class="space-y-4">
-              <div *ngFor="let p of paramMappingArray.controls; let i=index" [formGroupName]="i"
-                class="p-4 bg-gray-50 rounded border relative">
-                <button nz-button nzType="text" nzDanger class="!absolute top-2 right-2" (click)="removeRequestParam(i)">
-                  X
-                </button>
-        
-                <div class="grid grid-cols-2 gap-4 mb-3">
-                  <div>
-                    <label class="text-xs font-semibold text-gray-500 uppercase">Field Name</label>
-                    <input nz-input formControlName="field" placeholder="e.g. payload_date" />
-                  </div>
-                  <div class="flex flex-col gap-1">
-                    <label class="text-xs font-semibold text-gray-500 uppercase">Type</label>
-                    <nz-select formControlName="type" style="width: 160px;">
-                      <nz-option nzValue="string" nzLabel="String"></nz-option>
-                      <nz-option nzValue="number" nzLabel="Number"></nz-option>
-                      <nz-option nzValue="datetime_expression" nzLabel="Datetime Exp"></nz-option>
-                    </nz-select>
-                  </div>
-                </div>
-        
-                <div *ngIf="p.get('type')?.value !== 'datetime_expression'">
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Value</label>
-                    <input nz-input formControlName="value" />
-                  </div>
-                </div>
-        
-                <div *ngIf="p.get('type')?.value === 'datetime_expression'" formGroupName="logic"
-                  class="grid grid-cols-4 gap-2">
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Base</label>
-                    <input nz-input formControlName="base" />
-                  </div>
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Offset</label>
-                    <nz-input-number formControlName="offset_value" class="w-full"></nz-input-number>
-                  </div>
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Unit</label>
-                    <nz-select formControlName="offset_unit" class="w-full">
-                      <nz-option nzValue="MINUTES" nzLabel="Minutes"></nz-option>
-                      <nz-option nzValue="HOURS" nzLabel="Hours"></nz-option>
-                      <nz-option nzValue="DAYS" nzLabel="Days"></nz-option>
-                      <nz-option nzValue="MONTHS" nzLabel="Months"></nz-option>
-                      <nz-option nzValue="YEARS" nzLabel="Years"></nz-option>
-                    </nz-select>
-                  </div>
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Format</label>
-                    <input nz-input formControlName="format" />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <button nz-button nzType="dashed" class="w-full mt-3" (click)="addRequestParam()">+ Add Param Mapping</button>
-          </nz-card>
-        
-          <nz-card nzTitle="Request Body Mapping" nzSize="small" class="shadow-sm mt-6">
-            <div formArrayName="body_mapping" class="space-y-4">
-              <div *ngFor="let item of bodyMappingArray.controls; let i = index" [formGroupName]="i"
-                class="p-4 bg-gray-50 rounded border relative">
-                <button nz-button nzType="text" nzDanger class="!absolute top-2 right-2" (click)="removeBodyMapping(i)">
-                  X
-                </button>
-        
-                <div class="grid grid-cols-2 gap-4 mb-3">
-                  <div>
-                    <label class="text-xs font-semibold text-gray-500 uppercase">Field Name</label>
-                    <input nz-input formControlName="field" placeholder="e.g. payload_date" />
-                  </div>
-                  <div class="flex flex-col gap-1">
-                    <label class="text-xs font-semibold text-gray-500 uppercase">Type</label>
-                    <nz-select formControlName="type" style="width: 160px;">
-                      <nz-option nzValue="string" nzLabel="String"></nz-option>
-                      <nz-option nzValue="number" nzLabel="Number"></nz-option>
-                      <nz-option nzValue="datetime_expression" nzLabel="Datetime Exp"></nz-option>
-                    </nz-select>
-                  </div>
-                </div>
-        
-                <div *ngIf="item.get('type')?.value !== 'datetime_expression'">
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Value</label>
-                    <input nz-input formControlName="value" />
-                  </div>
-                </div>
-        
-                <div *ngIf="item.get('type')?.value === 'datetime_expression'" formGroupName="logic"
-                  class="grid grid-cols-4 gap-2">
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Base</label>
-                    <input nz-input formControlName="base" />
-                  </div>
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Offset</label>
-                    <nz-input-number formControlName="offset_value" class="w-full"></nz-input-number>
-                  </div>
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Unit</label>
-                    <nz-select formControlName="offset_unit" class="w-full">
-                      <nz-option nzValue="MINUTES" nzLabel="Minutes"></nz-option>
-                      <nz-option nzValue="HOURS" nzLabel="Hours"></nz-option>
-                      <nz-option nzValue="DAYS" nzLabel="Days"></nz-option>
-                      <nz-option nzValue="MONTHS" nzLabel="Months"></nz-option>
-                      <nz-option nzValue="YEARS" nzLabel="Years"></nz-option>
-                    </nz-select>
-                  </div>
-                  <div>
-                    <label class="text-[10px] text-gray-400 block">Format</label>
-                    <input nz-input formControlName="format" />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <button nz-button nzType="dashed" class="w-full mt-3" (click)="addBodyMapping()">+ Add Body Field
-              Mapping</button>
-          </nz-card>
-
-          <button nz-button nzBlock nzType="primary" nzGhost (click)="testConnection()" [nzLoading]="isLoadingTest">
-            <span nz-icon nzType="api"></span> Test Connection API
-          </button>
-        </div>
-        
-      </div>
-    </div>
-
-    <div *ngIf="currentStep === 2" class="space-y-4">
-      <div formArrayName="transformation_pipeline">
-        <div *ngFor="let t of transforms.controls; let i=index" [formGroupName]="i"
-          class="flex gap-4 p-4 border rounded mb-4">
-          <nz-select formControlName="action" class="w-1/4" (ngModelChange)="onTransformActionChange(i)">
-            <nz-option nzValue="extract" nzLabel="Extract"></nz-option>
-            <nz-option nzValue="flatten" nzLabel="Flatten"></nz-option>
-            <nz-option nzValue="filter" nzLabel="Filter"></nz-option>
-            <nz-option nzValue="calculate" nzLabel="Calculate"></nz-option>
-          </nz-select>
-          <textarea nz-input formControlName="params" class="flex-1" placeholder="Params (JSON)"></textarea>
-          <button nz-button nzDanger (click)="removeTransform(i)">X</button>
-        </div>
-      </div>
-      <button nz-button nzType="dashed" class="w-full" (click)="addTransform()">+ Add Step</button>
-    </div>
-
-    <div *ngIf="currentStep === 3" formGroupName="destination">
-      <div *ngIf="isDestGalleryVisible">
-        <label class="font-semibold block mb-4">Select Destination Connector:</label>
-        <app-connector-gallery (onSelect)="setDestType($event)"></app-connector-gallery>
-      </div>
-
-      <div *ngIf="!isDestGalleryVisible" class="space-y-6">
-        <div class="flex justify-between items-center bg-purple-50 p-3 rounded">
-          <span class="text-purple-700 font-bold">Target: {{flowForm.get('destination.type')?.value}}</span>
-          <button nz-button nzType="link" (click)="showDestGallery()">Change Connector</button>
-        </div>
-
-        <nz-form-item><nz-form-label nzRequired>Connection URL</nz-form-label><input nz-input
-            formControlName="url" /></nz-form-item>
-
-        <div class="grid grid-cols-3 gap-4 !mb-0">
-          <nz-form-item><nz-form-label nzRequired>Username</nz-form-label><input nz-input
-              formControlName="username" /></nz-form-item>
-          <nz-form-item><nz-form-label>Password</nz-form-label><input nz-input type="password"
-              formControlName="password" /></nz-form-item>
-          <nz-form-item><nz-form-label nzRequired>Table</nz-form-label><input nz-input
-              formControlName="table" /></nz-form-item>
-        </div>
-
-        <div class="grid grid-cols-2 gap-4 !mb-0">
-          <nz-form-item>
-            <nz-form-label
-              nzTooltipTitle="Các trường dùng để xác định bản ghi duy nhất khi cập nhật (ngăn cách bởi dấu phẩy)">
-              Upsert Key
-            </nz-form-label>
-            <nz-form-control>
-              <input nz-input formControlName="upsert_key" placeholder="e.g., station_id, time_point" />
-            </nz-form-control>
+  
+    <nz-steps [nzCurrent]="currentStep" class="!mb-10">
+      <nz-step nzTitle="General Info"></nz-step>
+      <nz-step nzTitle="Source Config"></nz-step>
+      <nz-step nzTitle="Transformations"></nz-step>
+      <nz-step nzTitle="Destination"></nz-step>
+    </nz-steps>
+  
+    <form nz-form [formGroup]="flowForm" nzLayout="vertical">
+  
+      <div *ngIf="currentStep === 0">
+        <div formGroupName="flow_metadata" class="grid grid-cols-2 gap-6">
+          <nz-form-item class="col-span-2">
+            <nz-form-label nzRequired>Flow ID</nz-form-label>
+            <nz-form-control><input nz-input formControlName="id"
+                placeholder="e.g., station-data-fetcher" /></nz-form-control>
           </nz-form-item>
-
+  
           <nz-form-item>
-            <nz-form-label nzTooltipTitle="Trường lưu thời gian cập nhật bản ghi">
-              Update Time Field
-            </nz-form-label>
-            <nz-form-control>
-              <input nz-input formControlName="update_time_field" placeholder="e.g., updated_date" />
-            </nz-form-control>
+            <nz-form-label nzRequired>Namespace</nz-form-label>
+            <nz-form-control><input nz-input formControlName="namespace" placeholder="company.team" /></nz-form-control>
+          </nz-form-item>
+  
+          <nz-form-item>
+            <nz-form-label>Description</nz-form-label>
+            <nz-form-control><textarea nz-input formControlName="description" rows="1"></textarea></nz-form-control>
           </nz-form-item>
         </div>
-
-
-        <nz-card nzTitle="Columns Mapping" nzSize="small">
-          <div formArrayName="columns">
-            <div *ngFor="let col of destColumns.controls; let i=index" [formGroupName]="i" class="flex gap-4 mb-2">
-              <input nz-input formControlName="mapping" placeholder="Source Field" />
-              <input nz-input formControlName="name" placeholder="DB Column" />
-              <nz-select formControlName="type" class="w-1/4">
-                <nz-option nzValue="character varying" nzLabel="String"></nz-option>
-                <nz-option nzValue="float" nzLabel="Float"></nz-option>
-                <nz-option nzValue="timestamp" nzLabel="Timestamp"></nz-option>
-                <nz-option nzValue="integer" nzLabel="Integer"></nz-option>
+  
+        <div formGroupName="trigger" class="mt-4">
+          <nz-form-label nzRequired>Repeat Every</nz-form-label>
+          <nz-form-control>
+            <nz-input-group nzCompact>
+              <nz-input-number formControlName="value" [nzMin]="1" style="width: 10%;">
+              </nz-input-number>
+  
+              <nz-select formControlName="unit" style="width: 10%;">
+                <nz-option nzValue="MINUTES" nzLabel="Minute(s)"></nz-option>
+                <nz-option nzValue="HOURS" nzLabel="Hour(s)"></nz-option>
+                <nz-option nzValue="DAYS" nzLabel="Day(s)"></nz-option>
               </nz-select>
-              <button nz-button nzType="text" nzDanger (click)="removeColumn(i)">X</button>
+            </nz-input-group>
+  
+            <div class="mt-2 text-gray-400 text-xs italic">
+              Resulting Cron: {{ convertToCron(flowForm.get('trigger.value')?.value, flowForm.get('trigger.unit')?.value)
+              }}
             </div>
+          </nz-form-control>
+        </div>
+      </div>
+  
+      <div *ngIf="currentStep === 1" formGroupName="source">
+        <div *ngIf="isSourceGalleryVisible">
+          <label class="font-semibold block mb-4">Select Source Connector:</label>
+          <app-connector-gallery (onSelect)="setSourceType($event)"></app-connector-gallery>
+        </div>
+  
+        <div *ngIf="!isSourceGalleryVisible" class="space-y-6">
+          <div class="flex justify-between items-center bg-blue-50 p-3 rounded">
+            <span class="text-blue-700 font-bold">Selected: {{flowForm.get('source.type')?.value}}</span>
+            <button nz-button nzType="link" (click)="showSourceGallery()">Change Connector</button>
           </div>
-          <button nz-button nzType="dashed" class="w-full" (click)="addColumn()">+ Add Column</button>
-        </nz-card>
+  
+          <button class="!mb-4" nz-button nzType="default" (click)="showAuthProvider = !showAuthProvider">
+            {{ showAuthProvider ? 'Remove Auth Form' : 'Generate Auth Form' }}
+          </button>
+  
+          <h2 *ngIf="showAuthProvider">Authentication</h2>
+  
+          <div *ngIf="showAuthProvider" formGroupName="auth_provider"
+            class="p-6 border-2 border-dashed border-blue-200 rounded-xl bg-slate-50 space-y-6">
+  
+            <h2>Authentication</h2>
+  
+            <div class="grid grid-cols-4 gap-4">
+              <nz-form-item class="col-span-3">
+                <nz-form-label nzRequired>API URL</nz-form-label>
+                <nz-form-control><input nz-input formControlName="url" /></nz-form-control>
+              </nz-form-item>
+              <nz-form-item>
+                <nz-form-label nzRequired>Method</nz-form-label>
+                <nz-form-control>
+                  <nz-select formControlName="method">
+                    <nz-option nzValue="GET" nzLabel="GET"></nz-option>
+                    <nz-option nzValue="POST" nzLabel="POST"></nz-option>
+                    <nz-option nzValue="PUT" nzLabel="PUT"></nz-option>
+                    <nz-option nzValue="DELETE" nzLabel="DELETE"></nz-option>
+                    <nz-option nzValue="PATCH" nzLabel="PATCH"></nz-option>
+                  </nz-select>
+                </nz-form-control>
+              </nz-form-item>
+            </div>
+          
+            <nz-card nzTitle="Headers" nzSize="small" class="shadow-sm">
+              <div formArrayName="headers">
+                <div *ngFor="let h of sourceAuthHeaders.controls; let i=index" [formGroupName]="i" class="flex gap-2 mb-2">
+                  <input nz-input formControlName="key" placeholder="Key (e.g. Authorization)" />
+                  <input nz-input formControlName="value" placeholder="Value" />
+                  <button nz-button nzType="text" nzDanger (click)="removeAuthHeader(i)">X</button>
+                </div>
+              </div>
+              <button nz-button nzType="dashed" class="w-full mt-2" (click)="addAuthHeader()">+ Add Auth Header</button>
+            </nz-card>
+          
+            <nz-card nzTitle="Request Params Mapping" nzSize="small" class="shadow-sm">
+              <div formArrayName="param" class="space-y-4">
+                <div *ngFor="let p of paramAuthMappingArray.controls; let i=index" [formGroupName]="i"
+                  class="p-4 bg-gray-50 rounded border relative">
+                  <button nz-button nzType="text" nzDanger class="!absolute top-2 right-2" (click)="removeAuthRequestParam(i)">
+                    X
+                  </button>
+          
+                  <div class="grid grid-cols-2 gap-4 mb-3">
+                    <div>
+                      <label class="text-xs font-semibold text-gray-500 uppercase">Field Name</label>
+                      <input nz-input formControlName="field" placeholder="e.g. payload_date" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs font-semibold text-gray-500 uppercase">Type</label>
+                      <nz-select formControlName="type" style="width: 160px;">
+                        <nz-option nzValue="string" nzLabel="String"></nz-option>
+                        <nz-option nzValue="number" nzLabel="Number"></nz-option>
+                        <nz-option nzValue="datetime_expression" nzLabel="Datetime Exp"></nz-option>
+                      </nz-select>
+                    </div>
+                  </div>
+          
+                  <div *ngIf="p.get('type')?.value !== 'datetime_expression'">
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Value</label>
+                      <input nz-input formControlName="value" />
+                    </div>
+                  </div>
+          
+                  <div *ngIf="p.get('type')?.value === 'datetime_expression'" formGroupName="logic"
+                    class="grid grid-cols-4 gap-2">
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Base</label>
+                      <input nz-input formControlName="base" />
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Offset</label>
+                      <nz-input-number formControlName="offset_value" class="w-full"></nz-input-number>
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Unit</label>
+                      <nz-select formControlName="offset_unit" class="w-full">
+                        <nz-option nzValue="MINUTES" nzLabel="Minutes"></nz-option>
+                        <nz-option nzValue="HOURS" nzLabel="Hours"></nz-option>
+                        <nz-option nzValue="DAYS" nzLabel="Days"></nz-option>
+                        <nz-option nzValue="MONTHS" nzLabel="Months"></nz-option>
+                        <nz-option nzValue="YEARS" nzLabel="Years"></nz-option>
+                      </nz-select>
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Format</label>
+                      <input nz-input formControlName="format" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <button nz-button nzType="dashed" class="w-full mt-3" (click)="addAuthRequestParam()">+ Add Auth Param Mapping</button>
+            </nz-card>
+          
+            <nz-card nzTitle="Request Body Mapping" nzSize="small" class="shadow-sm mt-6">
+              <div formArrayName="body" class="space-y-4">
+                <div *ngFor="let item of bodyAuthMappingArray.controls; let i = index" [formGroupName]="i"
+                  class="p-4 bg-gray-50 rounded border relative">
+                  <button nz-button nzType="text" nzDanger class="!absolute top-2 right-2" (click)="removeAuthBodyMapping(i)">
+                    X
+                  </button>
+          
+                  <div class="grid grid-cols-2 gap-4 mb-3">
+                    <div>
+                      <label class="text-xs font-semibold text-gray-500 uppercase">Field Name</label>
+                      <input nz-input formControlName="field" placeholder="e.g. payload_date" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs font-semibold text-gray-500 uppercase">Type</label>
+                      <nz-select formControlName="type" style="width: 160px;">
+                        <nz-option nzValue="string" nzLabel="String"></nz-option>
+                        <nz-option nzValue="number" nzLabel="Number"></nz-option>
+                        <nz-option nzValue="datetime_expression" nzLabel="Datetime Exp"></nz-option>
+                      </nz-select>
+                    </div>
+                  </div>
+          
+                  <div *ngIf="item.get('type')?.value !== 'datetime_expression'">
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Value</label>
+                      <input nz-input formControlName="value" />
+                    </div>
+                  </div>
+          
+                  <div *ngIf="item.get('type')?.value === 'datetime_expression'" formGroupName="logic"
+                    class="grid grid-cols-4 gap-2">
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Base</label>
+                      <input nz-input formControlName="base" />
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Offset</label>
+                      <nz-input-number formControlName="offset_value" class="w-full"></nz-input-number>
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Unit</label>
+                      <nz-select formControlName="offset_unit" class="w-full">
+                        <nz-option nzValue="MINUTES" nzLabel="Minutes"></nz-option>
+                        <nz-option nzValue="HOURS" nzLabel="Hours"></nz-option>
+                        <nz-option nzValue="DAYS" nzLabel="Days"></nz-option>
+                        <nz-option nzValue="MONTHS" nzLabel="Months"></nz-option>
+                        <nz-option nzValue="YEARS" nzLabel="Years"></nz-option>
+                      </nz-select>
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Format</label>
+                      <input nz-input formControlName="format" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <button nz-button nzType="dashed" class="w-full mt-3" (click)="addAuthBodyMapping()">+ Add Auth Body Field
+                Mapping</button>
+            </nz-card>
+          </div>
+  
+          <!-- Auth Provider -->
+          <hr *ngIf="showAuthProvider" class="my-6">
+  
+  
+          <h2>Request</h2>
+          <div class="p-6 border-2 border-dashed border-blue-200 rounded-xl bg-slate-50 space-y-6">
+            <div class="grid grid-cols-4 gap-4">
+              <nz-form-item class="col-span-3">
+                <nz-form-label nzRequired>API URL</nz-form-label>
+                <nz-form-control><input nz-input formControlName="url" /></nz-form-control>
+              </nz-form-item>
+              <nz-form-item>
+                <nz-form-label nzRequired>Method</nz-form-label>
+                <nz-form-control>
+                  <nz-select formControlName="method">
+                    <nz-option nzValue="GET" nzLabel="GET"></nz-option>
+                    <nz-option nzValue="POST" nzLabel="POST"></nz-option>
+                    <nz-option nzValue="PUT" nzLabel="PUT"></nz-option>
+                    <nz-option nzValue="DELETE" nzLabel="DELETE"></nz-option>
+                    <nz-option nzValue="PATCH" nzLabel="PATCH"></nz-option>
+                  </nz-select>
+                </nz-form-control>
+              </nz-form-item>
+            </div>
+          
+            <nz-card nzTitle="Headers" nzSize="small" class="shadow-sm">
+              <div formArrayName="headers">
+                <div *ngFor="let h of sourceHeaders.controls; let i=index" [formGroupName]="i" class="flex gap-2 mb-2">
+                  <input nz-input formControlName="key" placeholder="Key (e.g. Authorization)" />
+                  <input nz-input formControlName="value" placeholder="Value" />
+                  <button nz-button nzType="text" nzDanger (click)="removeHeader(i)">X</button>
+                </div>
+              </div>
+              <div class="flex">
+                <button nz-button nzType="dashed" class="w-full mt-2" (click)="addHeader()">+ Add Header</button>
+                <button nz-button nzType="dashed" class="w-full mt-2" (click)="addHeaderToken()">+ Add Header Token</button>
+              </div>
+  
+            </nz-card>
+          
+            <nz-card nzTitle="Request Params Mapping" nzSize="small" class="shadow-sm">
+              <div formArrayName="request_param_mapping" class="space-y-4">
+                <div *ngFor="let p of paramMappingArray.controls; let i=index" [formGroupName]="i"
+                  class="p-4 bg-gray-50 rounded border relative">
+                  <button nz-button nzType="text" nzDanger class="!absolute top-2 right-2" (click)="removeRequestParam(i)">
+                    X
+                  </button>
+          
+                  <div class="grid grid-cols-2 gap-4 mb-3">
+                    <div>
+                      <label class="text-xs font-semibold text-gray-500 uppercase">Field Name</label>
+                      <input nz-input formControlName="field" placeholder="e.g. payload_date" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs font-semibold text-gray-500 uppercase">Type</label>
+                      <nz-select formControlName="type" style="width: 160px;">
+                        <nz-option nzValue="string" nzLabel="String"></nz-option>
+                        <nz-option nzValue="number" nzLabel="Number"></nz-option>
+                        <nz-option nzValue="datetime_expression" nzLabel="Datetime Exp"></nz-option>
+                      </nz-select>
+                    </div>
+                  </div>
+          
+                  <div *ngIf="p.get('type')?.value !== 'datetime_expression'">
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Value</label>
+                      <input nz-input formControlName="value" />
+                    </div>
+                  </div>
+          
+                  <div *ngIf="p.get('type')?.value === 'datetime_expression'" formGroupName="logic"
+                    class="grid grid-cols-4 gap-2">
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Base</label>
+                      <input nz-input formControlName="base" />
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Offset</label>
+                      <nz-input-number formControlName="offset_value" class="w-full"></nz-input-number>
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Unit</label>
+                      <nz-select formControlName="offset_unit" class="w-full">
+                        <nz-option nzValue="MINUTES" nzLabel="Minutes"></nz-option>
+                        <nz-option nzValue="HOURS" nzLabel="Hours"></nz-option>
+                        <nz-option nzValue="DAYS" nzLabel="Days"></nz-option>
+                        <nz-option nzValue="MONTHS" nzLabel="Months"></nz-option>
+                        <nz-option nzValue="YEARS" nzLabel="Years"></nz-option>
+                      </nz-select>
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Format</label>
+                      <input nz-input formControlName="format" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <button nz-button nzType="dashed" class="w-full mt-3" (click)="addRequestParam()">+ Add Param Mapping</button>
+            </nz-card>
+          
+            <nz-card nzTitle="Request Body Mapping" nzSize="small" class="shadow-sm mt-6">
+              <div formArrayName="body_mapping" class="space-y-4">
+                <div *ngFor="let item of bodyMappingArray.controls; let i = index" [formGroupName]="i"
+                  class="p-4 bg-gray-50 rounded border relative">
+                  <button nz-button nzType="text" nzDanger class="!absolute top-2 right-2" (click)="removeBodyMapping(i)">
+                    X
+                  </button>
+          
+                  <div class="grid grid-cols-2 gap-4 mb-3">
+                    <div>
+                      <label class="text-xs font-semibold text-gray-500 uppercase">Field Name</label>
+                      <input nz-input formControlName="field" placeholder="e.g. payload_date" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs font-semibold text-gray-500 uppercase">Type</label>
+                      <nz-select formControlName="type" style="width: 160px;">
+                        <nz-option nzValue="string" nzLabel="String"></nz-option>
+                        <nz-option nzValue="number" nzLabel="Number"></nz-option>
+                        <nz-option nzValue="datetime_expression" nzLabel="Datetime Exp"></nz-option>
+                      </nz-select>
+                    </div>
+                  </div>
+          
+                  <div *ngIf="item.get('type')?.value !== 'datetime_expression'">
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Value</label>
+                      <input nz-input formControlName="value" />
+                    </div>
+                  </div>
+          
+                  <div *ngIf="item.get('type')?.value === 'datetime_expression'" formGroupName="logic"
+                    class="grid grid-cols-4 gap-2">
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Base</label>
+                      <input nz-input formControlName="base" />
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Offset</label>
+                      <nz-input-number formControlName="offset_value" class="w-full"></nz-input-number>
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Unit</label>
+                      <nz-select formControlName="offset_unit" class="w-full">
+                        <nz-option nzValue="MINUTES" nzLabel="Minutes"></nz-option>
+                        <nz-option nzValue="HOURS" nzLabel="Hours"></nz-option>
+                        <nz-option nzValue="DAYS" nzLabel="Days"></nz-option>
+                        <nz-option nzValue="MONTHS" nzLabel="Months"></nz-option>
+                        <nz-option nzValue="YEARS" nzLabel="Years"></nz-option>
+                      </nz-select>
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-gray-400 block">Format</label>
+                      <input nz-input formControlName="format" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <button nz-button nzType="dashed" class="w-full mt-3" (click)="addBodyMapping()">+ Add Body Field
+                Mapping</button>
+            </nz-card>
+  
+            <button nz-button nzBlock nzType="primary" nzGhost (click)="testConnection()" [nzLoading]="isLoadingTest">
+              <span nz-icon nzType="api"></span> Test Connection API
+            </button>
+          </div>
+          
+        </div>
       </div>
-    </div>
-
-    <div class="flex justify-between mt-10 border-t pt-6">
-      <button nz-button (click)="prev()" [disabled]="currentStep === 0">Back</button>
-      <div>
-        <button nz-button nzType="primary" (click)="next()" *ngIf="currentStep < 3">Next</button>
-        <button nz-button nzType="primary" (click)="onSubmit()" *ngIf="currentStep === 3"
-          class="bg-green-600 border-none">Save Flow</button>
+  
+      <div *ngIf="currentStep === 2" class="space-y-4">
+        <div formArrayName="transformation_pipeline">
+          <div *ngFor="let t of transforms.controls; let i=index" [formGroupName]="i"
+            class="flex gap-4 p-4 border rounded mb-4">
+            <nz-select formControlName="action" class="w-1/4" (ngModelChange)="onTransformActionChange(i)">
+              <nz-option nzValue="extract" nzLabel="Extract"></nz-option>
+              <nz-option nzValue="flatten" nzLabel="Flatten"></nz-option>
+              <nz-option nzValue="filter" nzLabel="Filter"></nz-option>
+              <nz-option nzValue="calculate" nzLabel="Calculate"></nz-option>
+            </nz-select>
+            <textarea nz-input formControlName="params" class="flex-1" placeholder="Params (JSON)"></textarea>
+            <button nz-button nzDanger (click)="removeTransform(i)">X</button>
+          </div>
+        </div>
+        <button nz-button nzType="dashed" class="w-full" (click)="addTransform()">+ Add Step</button>
       </div>
-    </div>
-  </form>
-</div>
+  
+      <div *ngIf="currentStep === 3" formGroupName="destination">
+        <div *ngIf="isDestGalleryVisible">
+          <label class="font-semibold block mb-4">Select Destination Connector:</label>
+          <app-connector-gallery (onSelect)="setDestType($event)"></app-connector-gallery>
+        </div>
+  
+        <div *ngIf="!isDestGalleryVisible" class="space-y-6">
+          <div class="flex justify-between items-center bg-purple-50 p-3 rounded">
+            <span class="text-purple-700 font-bold">Target: {{flowForm.get('destination.type')?.value}}</span>
+            <button nz-button nzType="link" (click)="showDestGallery()">Change Connector</button>
+          </div>
+  
+          <nz-form-item><nz-form-label nzRequired>Connection URL</nz-form-label><input nz-input
+              formControlName="url" /></nz-form-item>
+  
+          <div class="grid grid-cols-3 gap-4 !mb-0">
+            <nz-form-item><nz-form-label nzRequired>Username</nz-form-label><input nz-input
+                formControlName="username" /></nz-form-item>
+            <nz-form-item><nz-form-label>Password</nz-form-label><input nz-input type="password"
+                formControlName="password" /></nz-form-item>
+            <nz-form-item><nz-form-label nzRequired>Table</nz-form-label><input nz-input
+                formControlName="table" /></nz-form-item>
+          </div>
+  
+          <div class="grid grid-cols-2 gap-4 !mb-0">
+            <nz-form-item>
+              <nz-form-label
+                nzTooltipTitle="Các trường dùng để xác định bản ghi duy nhất khi cập nhật (ngăn cách bởi dấu phẩy)">
+                Upsert Key
+              </nz-form-label>
+              <nz-form-control>
+                <input nz-input formControlName="upsert_key" placeholder="e.g., station_id, time_point" />
+              </nz-form-control>
+            </nz-form-item>
+  
+            <nz-form-item>
+              <nz-form-label nzTooltipTitle="Trường lưu thời gian cập nhật bản ghi">
+                Update Time Field
+              </nz-form-label>
+              <nz-form-control>
+                <input nz-input formControlName="update_time_field" placeholder="e.g., updated_date" />
+              </nz-form-control>
+            </nz-form-item>
+          </div>
+  
+  
+          <nz-card nzTitle="Columns Mapping" nzSize="small">
+            <div formArrayName="columns">
+              <div *ngFor="let col of destColumns.controls; let i=index" [formGroupName]="i" class="flex gap-4 mb-2">
+                <input nz-input formControlName="mapping" placeholder="Source Field" />
+                <input nz-input formControlName="name" placeholder="DB Column" />
+                <nz-select formControlName="type" class="w-1/4">
+                  <nz-option nzValue="character varying" nzLabel="String"></nz-option>
+                  <nz-option nzValue="float" nzLabel="Float"></nz-option>
+                  <nz-option nzValue="timestamp" nzLabel="Timestamp"></nz-option>
+                  <nz-option nzValue="integer" nzLabel="Integer"></nz-option>
+                </nz-select>
+                <button nz-button nzType="text" nzDanger (click)="removeColumn(i)">X</button>
+              </div>
+            </div>
+            <button nz-button nzType="dashed" class="w-full" (click)="addColumn()">+ Add Column</button>
+          </nz-card>
+        </div>
+      </div>
+  
+      <div class="flex justify-between mt-10 border-t pt-6">
+        <button nz-button (click)="prev()" [disabled]="currentStep === 0">Back</button>
+        <div>
+          <button nz-button nzType="primary" (click)="next()" *ngIf="currentStep < 3">Next</button>
+          <button [nzLoading]="isSubmitting" nz-button nzType="primary" (click)="onSubmit()" *ngIf="currentStep === 3"
+            class="bg-green-600 border-none">Save Flow</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</nz-spin>
