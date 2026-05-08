@@ -504,19 +504,19 @@ export class FlowBuilderComponent implements OnInit {
     };
 
     // 4. Gọi API Save
-    // this.flowService.saveFlow(finalPayload).subscribe({
-    //   next: (response) => {
-    //     this.message.success('Save Flow successfully!');
-    //     this.isSubmitting = false;
-    //     // 5. Điều hướng về trang danh sách
-    //     this.router.navigate(['/flows']);
-    //   },
-    //   error: (err) => {
-    //     console.error('Save error:', err);
-    //     this.message.error('Lỗi khi lưu: ' + (err.error?.message || 'Server Error'));
-    //     this.isSubmitting = false;
-    //   },
-    // });
+    this.flowService.saveFlow(finalPayload).subscribe({
+      next: (response) => {
+        this.message.success('Save Flow successfully!');
+        this.isSubmitting = false;
+        // 5. Điều hướng về trang danh sách
+        this.router.navigate(['/flows']);
+      },
+      error: (err) => {
+        console.error('Save error:', err);
+        this.message.error('Lỗi khi lưu: ' + (err.error?.message || 'Server Error'));
+        this.isSubmitting = false;
+      },
+    });
   }
 
   private parseHeaders(arr: any[]) {
