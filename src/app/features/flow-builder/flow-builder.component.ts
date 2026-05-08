@@ -537,8 +537,9 @@ export class FlowBuilderComponent implements OnInit {
       auth_provider: {
         ...auth_provider,
         token_extract_path: raw.source.headers.find((h: any) => h.key === 'Authorization')?.value,
-        param: formattedAuthParamMapping,
-        body: formattedAuthBodyMapping,
+        headers: this.parseArrayToObject(raw.source.auth_provider.headers),
+        param: this.parseArrayToObject(raw.source.auth_provider.param),
+        body: this.parseArrayToObject(formattedAuthBodyMapping),
       },
       source: {
         ...sourceWithoutAuth,
@@ -588,7 +589,7 @@ export class FlowBuilderComponent implements OnInit {
     arr.forEach((h) => {
       if (h.key) {
         if(this.showAuthProvider && h.key === 'Authorization') {
-          obj[h.key] = `{{ auth_provider.auth_type }} {{ outputs.[auth_provider.id].body.[auth_provider.token_extract_path] }}`; 
+          obj[h.key] = `{{ auth_provider.auth_type }} {{ outputs.[auth_provider.id].body.[auth_provider.token_extract_path] }}`;
         } else {
           obj[h.key] = h.value;
         }
@@ -649,5 +650,15 @@ export class FlowBuilderComponent implements OnInit {
     transformGroup.patchValue({
       params: JSON.stringify(defaultParams, null, 2),
     });
+  }
+
+  // Thêm hàm helper này để convert mảng sang Object {}
+  private parseArrayToObject(arr: any[]) {
+    const obj: any = {};
+    arr.forEach((item) => {
+      const key = item.key || item.field;
+      if (key) obj[key] = item.value;
+    });
+    return obj;
   }
 }
