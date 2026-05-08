@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule } from '@angular/forms';
 
@@ -15,6 +15,7 @@ import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
 import { Router } from '@angular/router';
 import { FlowService } from '../../core/services/flow.service';
 import { NzMessageService } from 'ng-zorro-antd/message';
+import { switchMap } from 'rxjs';
 
 @Component({
   selector: 'app-flow-builder',
@@ -39,14 +40,27 @@ export class FlowBuilderComponent implements OnInit {
   private router = inject(Router);
   private flowService = inject(FlowService);
   private message = inject(NzMessageService);
+  private cdr = inject(ChangeDetectorRef);
 
   isSubmitting = false;
   flowForm!: FormGroup;
   currentStep = 0;
 
+  showAuthProvider = false; // Điều khiển ẩn hiện form Auth
+  isLoadingTest = false; // Trạng thái loading cho nút Test Connection
+
   // Logic kiểm soát hiển thị Gallery
   isSourceGalleryVisible = true;
   isDestGalleryVisible = true;
+
+  // Danh sách các action và JSON mặc định tương ứng
+  DEFAULT_ACTION_PARAMS: { [key: string]: string } = {
+    MAP_FIELD: JSON.stringify({ source_field: '', target_field: '' }, null, 2),
+    FILTER: JSON.stringify({ condition: 'field > 10' }, null, 2),
+    CONVERT_TYPE: JSON.stringify({ field: '', to_type: 'number' }, null, 2),
+    REPLACE: JSON.stringify({ field: '', old_value: '', new_value: '' }, null, 2),
+    CUSTOM_SCRIPT: JSON.stringify({ script: 'return data;' }, null, 2),
+  };
 
   ngOnInit() {
     this.initForm();
@@ -73,6 +87,17 @@ export class FlowBuilderComponent implements OnInit {
         body_mapping: this.fb.array([]), // Mảng chính chúng ta đang xử lý
         response_extract_path: ['data'],
         contentType: ['application/json'],
+
+        auth_provider: this.fb.group({
+          id: ['get_token'], // Có thể dùng để lưu loại auth nếu muốn
+          url: ['https://tich-hop-du-lieu.vgis.vn/api/mock/auth'],
+          method: ['POST'],
+          headers: this.fb.array([]),
+          param: this.fb.array([]),
+          body: this.fb.array([]),
+          token_extract_path: ['data.access_token'],
+          auth_type: ['Bearer'],
+        }),
       }),
       transformation_pipeline: this.fb.array([]),
       destination: this.fb.group({
@@ -110,8 +135,16 @@ export class FlowBuilderComponent implements OnInit {
     return this.flowForm.get('source.body_mapping') as FormArray;
   }
 
+  get bodyAuthMappingArray(): FormArray {
+    return this.flowForm.get('source.auth_provider.body') as FormArray;
+  }
+
   get paramMappingArray(): FormArray {
     return this.flowForm.get('source.request_param_mapping') as FormArray;
+  }
+
+  get paramAuthMappingArray(): FormArray {
+    return this.flowForm.get('source.auth_provider.param') as FormArray;
   }
 
   private fillSampleData() {
@@ -234,12 +267,12 @@ export class FlowBuilderComponent implements OnInit {
     });
   }
 
-  createTransformGroup(action = '', params: any = {}) {
-    return this.fb.group({
-      action: [action],
-      params: [JSON.stringify(params)], // Dùng stringify trên UI để dễ nhập, lúc submit sẽ parse lại JSON
-    });
-  }
+  // createTransformGroup(action = '', params: any = {}) {
+  //   return this.fb.group({
+  //     action: [action],
+  //     params: [JSON.stringify(params)], // Dùng stringify trên UI để dễ nhập, lúc submit sẽ parse lại JSON
+  //   });
+  // }
 
   createColumnGroup(name = '', type = '', mapping = '') {
     return this.fb.group({ name: [name], type: [type], mapping: [mapping] });
@@ -249,6 +282,11 @@ export class FlowBuilderComponent implements OnInit {
   get sourceHeaders() {
     return this.flowForm.get('source.headers') as FormArray;
   }
+
+  get sourceAuthHeaders() {
+    return this.flowForm.get('source.auth_provider.headers') as FormArray;
+  }
+
   get requestParams() {
     return this.flowForm.get('source.request_param_mapping') as FormArray;
   }
@@ -266,23 +304,51 @@ export class FlowBuilderComponent implements OnInit {
   addHeader() {
     this.sourceHeaders.push(this.fb.group({ key: [''], value: [''] }));
   }
+
+  addHeaderToken() {
+    this.sourceHeaders.push(
+      this.fb.group({ key: ['Authorization'], value: ['data.access_token'] }),
+    );
+  }
+
+  addAuthHeader() {
+    this.sourceAuthHeaders.push(this.fb.group({ key: [''], value: [''] }));
+  }
+
   removeHeader(i: number) {
     this.sourceHeaders.removeAt(i);
   }
+
+  removeAuthHeader(i: number) {
+    this.sourceAuthHeaders.removeAt(i);
+  }
+
   removeRequestParam(i: number) {
     this.paramMappingArray.removeAt(i);
+  }
+
+  removeAuthRequestParam(i: number) {
+    this.paramAuthMappingArray.removeAt(i);
   }
 
   addBodyMapping() {
     this.bodyMappingArray.push(this.createMappingItem());
   }
 
+  addAuthBodyMapping() {
+    this.bodyAuthMappingArray.push(this.createMappingItem());
+  }
+
   removeBodyMapping(index: number) {
     this.bodyMappingArray.removeAt(index);
   }
 
+  removeAuthBodyMapping(index: number) {
+    this.bodyAuthMappingArray.removeAt(index);
+  }
+
   addTransform() {
-    this.transforms.push(this.fb.group({ action: ['flatten'], params: ['{}'] }));
+    this.transforms.push(this.createTransformGroup());
   }
   removeTransform(i: number) {
     this.transforms.removeAt(i);
@@ -299,11 +365,57 @@ export class FlowBuilderComponent implements OnInit {
     this.paramMappingArray.push(this.createMappingItem());
   }
 
+  addAuthRequestParam() {
+    this.paramAuthMappingArray.push(this.createMappingItem());
+  }
+
   next() {
     this.currentStep++;
   }
   prev() {
     this.currentStep--;
+  }
+
+  testConnection() {
+    this.isLoadingTest = true;
+    const authConfig = this.flowForm.getRawValue().source.auth_provider;
+
+    const sourceData = this.flowForm.getRawValue().source;
+
+    // Gọi api get token
+
+    if (this.showAuthProvider && authConfig.url) {
+      this.isLoadingTest = true;
+
+      // Luồng xử lý: Nếu có Auth -> Lấy Token -> Gọi API chính. Nếu không -> Gọi API chính luôn.
+      const connection$ =
+        this.showAuthProvider && sourceData.auth_provider?.url
+          ? this.flowService.getToken(sourceData.auth_provider).pipe(
+              switchMap((token) => {
+                console.log('🚀 chungnm2 ~ flow-builder.component.ts ~ token:', token);
+                // this.message.success('Auth successful, calling main API...');
+                return this.flowService.callMainApi(token, sourceData);
+              }),
+            )
+          : this.flowService.callMainApi('', sourceData);
+
+      connection$.subscribe({
+        next: (res) => {
+          this.message.success('Connection Successful!');
+          console.log('API Response:', res);
+          this.isLoadingTest = false;
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          this.message.error('Connection Failed: ' + (err.message || 'Unknown error'));
+          this.isLoadingTest = false;
+          this.cdr.detectChanges();
+        },
+      });
+    } else {
+      console.log('lỗi!!!!');
+      // this.callMainApi();
+    }
   }
 
   onSubmit() {
@@ -392,19 +504,19 @@ export class FlowBuilderComponent implements OnInit {
     };
 
     // 4. Gọi API Save
-    this.flowService.saveFlow(finalPayload).subscribe({
-      next: (response) => {
-        this.message.success('Save Flow successfully!');
-        this.isSubmitting = false;
-        // 5. Điều hướng về trang danh sách
-        this.router.navigate(['/flows']);
-      },
-      error: (err) => {
-        console.error('Save error:', err);
-        this.message.error('Lỗi khi lưu: ' + (err.error?.message || 'Server Error'));
-        this.isSubmitting = false;
-      },
-    });
+    // this.flowService.saveFlow(finalPayload).subscribe({
+    //   next: (response) => {
+    //     this.message.success('Save Flow successfully!');
+    //     this.isSubmitting = false;
+    //     // 5. Điều hướng về trang danh sách
+    //     this.router.navigate(['/flows']);
+    //   },
+    //   error: (err) => {
+    //     console.error('Save error:', err);
+    //     this.message.error('Lỗi khi lưu: ' + (err.error?.message || 'Server Error'));
+    //     this.isSubmitting = false;
+    //   },
+    // });
   }
 
   private parseHeaders(arr: any[]) {
@@ -423,6 +535,49 @@ export class FlowBuilderComponent implements OnInit {
         control.markAsDirty();
         control.updateValueAndValidity();
       }
+    });
+  }
+
+  // Danh sách default params cho transformation
+  TRANSFORM_DEFAULT_PARAMS: Record<string, any> = {
+    extract: {
+      path: 'data',
+    },
+
+    flatten: {
+      expand_array: 'values',
+      carry_forward: ['station_id'],
+    },
+
+    filter: {
+      condition: "item['depth'] > 0",
+    },
+
+    calculate: {
+      action: 'calculate',
+      params: {
+        new_field: 'dew',
+        formula: "get_path(item, 'iaqi.dew.v')",
+      },
+    },
+  };
+
+  createTransformGroup(action = 'extract') {
+    return this.fb.group({
+      action: [action],
+      params: [JSON.stringify(this.TRANSFORM_DEFAULT_PARAMS[action] || {}, null, 2)],
+    });
+  }
+
+  onTransformActionChange(index: number) {
+    const transformGroup = this.transforms.at(index) as FormGroup;
+    console.log("test")
+    const action = transformGroup.get('action')?.value;
+
+    const defaultParams = this.TRANSFORM_DEFAULT_PARAMS[action] || {};
+
+    transformGroup.patchValue({
+      params: JSON.stringify(defaultParams, null, 2),
     });
   }
 }
