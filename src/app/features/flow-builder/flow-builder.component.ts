@@ -87,7 +87,6 @@ export class FlowBuilderComponent implements OnInit {
         headers: this.fb.array([]),
         request_param_mapping: this.fb.array([]),
         body_mapping: this.fb.array([]), // Mảng chính chúng ta đang xử lý
-        response_extract_path: ['data'],
         contentType: ['application/json'],
 
         auth_provider: this.fb.group({
@@ -97,7 +96,7 @@ export class FlowBuilderComponent implements OnInit {
           headers: this.fb.array([]),
           param: this.fb.array([]),
           body: this.fb.array([]),
-          token_extract_path: [],
+          // token_extract_path: [],
           auth_type: ['Bearer'],
         }),
       }),
@@ -313,7 +312,7 @@ export class FlowBuilderComponent implements OnInit {
 
   addHeaderToken() {
     this.sourceHeaders.push(
-      this.fb.group({ key: ['Authorization'], value: ['token'] }),
+      this.fb.group({ key: ['Authorization'], value: ['Bearer {token}'] }),
     );
   }
 
@@ -382,6 +381,12 @@ export class FlowBuilderComponent implements OnInit {
     this.currentStep--;
   }
 
+  extractTokenFromTokenExtractPath(tokenExtractPath: string): string {
+    if (!tokenExtractPath || tokenExtractPath.length === 0) return '';
+    const match = tokenExtractPath.match(/\{\{?([^{}]+)\}\}?/);
+    return match ? match[1] : '';
+  }
+
   testConnection() {
     this.isLoadingTest = true;
     const authConfig = this.flowForm.getRawValue().source.auth_provider;
@@ -390,7 +395,9 @@ export class FlowBuilderComponent implements OnInit {
     const sourceData = this.flowForm.getRawValue().source;
     console.log("🚀 chungnm2 ~ flow-builder.component.ts ~ sourceData:", sourceData)
 
-    const token_extract_path = sourceData.headers.find((h: any) => h.key === 'Authorization')?.value;
+    let token_extract_path = sourceData.headers.find((h: any) => h.key === 'Authorization')?.value;
+    // token_extract_path lúc này có dạng "Bearer {token}", bóc tách token ra
+    token_extract_path = this.extractTokenFromTokenExtractPath(token_extract_path);
     console.log("🚀 chungnm2 ~ flow-builder.component.ts ~ token_extract_path:", token_extract_path)
 
     // Gọi api get token
@@ -402,12 +409,12 @@ export class FlowBuilderComponent implements OnInit {
       const connection$ =
         this.showAuthProvider && sourceData.auth_provider?.url
           ? this.flowService.getToken(sourceData.auth_provider, token_extract_path).pipe(
-              switchMap((token) => {
-                console.log('🚀 chungnm2 ~ flow-builder.component.ts ~ token:', token);
-                // this.message.success('Auth successful, calling main API...');
-                return this.flowService.callMainApi(token, sourceData, token_extract_path);
-              }),
-            )
+            switchMap((token) => {
+              console.log('🚀 chungnm2 ~ flow-builder.component.ts ~ token:', token);
+              // this.message.success('Auth successful, calling main API...');
+              return this.flowService.callMainApi(token, sourceData, token_extract_path);
+            }),
+          )
           : this.flowService.callMainApi('', sourceData, token_extract_path);
 
       connection$.subscribe({
@@ -424,7 +431,21 @@ export class FlowBuilderComponent implements OnInit {
         },
       });
     } else {
-      console.log('lỗi!!!!');
+      this.isLoadingTest = true;
+      const connection$ = this.flowService.callMainApi('', sourceData, token_extract_path);
+      connection$.subscribe({
+        next: (res) => {
+          this.message.success('Connection Successful!');
+          console.log('API Response:', res);
+          this.isLoadingTest = false;
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          this.message.error('Connection Failed: ' + (err.message || 'Unknown error'));
+          this.isLoadingTest = false;
+          this.cdr.detectChanges();
+        },
+      });
       // this.callMainApi();
     }
   }
@@ -534,13 +555,13 @@ export class FlowBuilderComponent implements OnInit {
       trigger: {
         cron: this.convertToCron(raw.trigger.value, raw.trigger.unit),
       },
-      auth_provider: {
+      auth_provider: this.showAuthProvider ? {
         ...auth_provider,
-        token_extract_path: raw.source.headers.find((h: any) => h.key === 'Authorization')?.value,
+        // token_extract_path: raw.source.headers.find((h: any) => h.key === 'Authorization')?.value,
         headers: this.parseArrayToObject(raw.source.auth_provider.headers),
         param: this.parseArrayToObject(raw.source.auth_provider.param),
         body: this.parseArrayToObject(formattedAuthBodyMapping),
-      },
+      } : null,
       source: {
         ...sourceWithoutAuth,
         headers: this.parseHeaders(raw.source.headers),
@@ -588,11 +609,11 @@ export class FlowBuilderComponent implements OnInit {
     const obj: any = {};
     arr.forEach((h) => {
       if (h.key) {
-        if(this.showAuthProvider && h.key === 'Authorization') {
-          obj[h.key] = `{{ auth_provider.auth_type }} {{ outputs.[auth_provider.id].body.[auth_provider.token_extract_path] }}`;
-        } else {
-          obj[h.key] = h.value;
-        }
+        // if (this.showAuthProvider && h.key === 'Authorization') {
+        //   obj[h.key] = `{{ auth_provider.auth_type }} {{ outputs.[auth_provider.id].body.[auth_provider.token_extract_path] }}`;
+        // } else {
+        obj[h.key] = h.value;
+        // }
       }
     });
     return obj;

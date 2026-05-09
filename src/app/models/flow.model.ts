@@ -16,7 +16,6 @@ export interface SyncFlowPayload {
     headers: Record<string, string>;
     request_param_mapping: any[];
     body_mapping: any[];
-    response_extract_path: string;
   };
   transformation_pipeline: any[];
   destination: {

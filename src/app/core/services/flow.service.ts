@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { map, Observable } from 'rxjs';
+import dayjs from 'dayjs';
 
 @Injectable({
   providedIn: 'root',
@@ -28,7 +29,7 @@ export class FlowService {
   }
 
   //
-  
+
   getToken(authConfig: any, token_extract_path: string): Observable<string> {
     console.log('🚀 chungnm2 ~ flow.service.ts ~ authConfig:', authConfig);
     const { url, method, headers, body } = authConfig;
@@ -87,13 +88,13 @@ export class FlowService {
       );
   }
 
-private getValueByPath(obj: any, path: string): any {
-  if (!obj || !path) return '';
+  private getValueByPath(obj: any, path: string): any {
+    if (!obj || !path) return '';
 
-  return path
-    .split('.')
-    .reduce((acc, part) => acc?.[part], obj);
-}
+    return path
+      .split('.')
+      .reduce((acc, part) => acc?.[part], obj);
+  }
 
   /**
    * Hàm tính toán thời gian dựa trên logic base, offset
@@ -123,7 +124,7 @@ private getValueByPath(obj: any, path: string): any {
 
     // 1. Xử lý Headers & Inject Token
     let httpHeaders = this.parseHeaders(headers || []);
-    console.log("🚀 chungnm2 ~ flow.service.ts ~ token:", token)
+    // console.log("🚀 chungnm2 ~ flow.service.ts ~ token:", token)
     if (token) {
       const authType = sourceConfig.auth_provider?.auth_type || 'Bearer';
       console.log("🚀 chungnm2 ~ flow.service.ts ~ authType:", authType)
@@ -152,49 +153,66 @@ private getValueByPath(obj: any, path: string): any {
     arr.forEach(h => { if (h.key) obj[h.key] = h.value; });
     return obj;
   }
-private parseMappingToPayload(mappingArray: any[]): any {
-  const payload: any = {};
+  private parseMappingToPayload(mappingArray: any[]): any {
+    console.log("🚀 chungnm2 ~ flow.service.ts ~ mappingArray:", mappingArray)
+    const payload: any = {};
 
-  mappingArray.forEach(item => {
-    if (!item.field) return;
+    mappingArray.forEach(item => {
+      if (!item.field) return;
 
-    // xử lý datetime dynamic
-    if (item.logic && item.logic.base === 'now') {
-      payload[item.field] = this.evaluateDatetime(item.logic);
-    } else {
-      // xử lý value thường
-      payload[item.field] =
-        item.type === 'number'
-          ? Number(item.value)
-          : item.value;
+      switch (item.type) {
+        case 'datetime_expression': {
+          if (item.logic && item.logic.base === 'now') {
+            payload[item.field] = this.evaluateDatetime(item.logic);
+          }
+          break;
+        }
+        case 'number': {
+          payload[item.field] = Number(item.value);
+          break;
+        }
+        default: {
+          payload[item.field] = item.value;
+          break;
+        }
+      }
+      // // xử lý datetime dynamic
+      // if (item.logic && item.logic.base === 'now') {
+      //   payload[item.field] = this.evaluateDatetime(item.logic);
+      // } else {
+      //   // xử lý value thường
+      //   payload[item.field] =
+      //     item.type === 'number'
+      //       ? Number(item.value)
+      //       : item.value;
+      // }
+    });
+
+    return payload;
+  }
+
+  private evaluateDatetime(logic: any): string {
+    const date = dayjs();
+
+    // cộng/trừ phút
+    if (logic.offset_unit === 'MINUTES') {
+      date.add(logic.offset_value || 0, 'minute');
     }
-  });
 
-  return payload;
-}
+    // cộng/trừ giờ
+    if (logic.offset_unit === 'HOURS') {
+      date.add(logic.offset_value || 0, 'hour');
+    }
 
-private evaluateDatetime(logic: any): string {
-  const date = new Date();
+    // cộng/trừ ngày
+    if (logic.offset_unit === 'DAYS') {
+      date.add(logic.offset_value || 0, 'day');
+    }
 
-  // cộng/trừ giờ
-  if (logic.offset_unit === 'HOURS') {
-    date.setHours(
-      date.getHours() + (logic.offset_value || 0)
-    );
+    if (logic.format) {
+      return date.format(logic.format.toUpperCase());
+    }
+    return date.toISOString();
   }
-
-  // cộng/trừ ngày
-  if (logic.offset_unit === 'DAYS') {
-    date.setDate(
-      date.getDate() + (logic.offset_value || 0)
-    );
-  }
-
-  // format yyyy-MM-ddTHH:mm:ss
-  const pad = (n: number): string =>
-    n.toString().padStart(2, '0');
-
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-}
 
 }
