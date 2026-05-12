@@ -33,7 +33,7 @@ import { NzSpinModule } from 'ng-zorro-antd/spin';
     NzCardModule,
     NzIconModule,
     NzInputNumberModule,
-    NzSpinModule
+    NzSpinModule,
   ],
   templateUrl: './flow-builder.component.html',
 })
@@ -311,9 +311,7 @@ export class FlowBuilderComponent implements OnInit {
   }
 
   addHeaderToken() {
-    this.sourceHeaders.push(
-      this.fb.group({ key: ['Authorization'], value: ['Bearer {token}'] }),
-    );
+    this.sourceHeaders.push(this.fb.group({ key: ['Authorization'], value: ['Bearer {token}'] }));
   }
 
   addAuthHeader() {
@@ -390,15 +388,18 @@ export class FlowBuilderComponent implements OnInit {
   testConnection() {
     this.isLoadingTest = true;
     const authConfig = this.flowForm.getRawValue().source.auth_provider;
-    console.log("🚀 chungnm2 ~ flow-builder.component.ts ~ authConfig:", authConfig)
+    console.log('🚀 chungnm2 ~ flow-builder.component.ts ~ authConfig:', authConfig);
 
     const sourceData = this.flowForm.getRawValue().source;
-    console.log("🚀 chungnm2 ~ flow-builder.component.ts ~ sourceData:", sourceData)
+    console.log('🚀 chungnm2 ~ flow-builder.component.ts ~ sourceData:', sourceData);
 
     let token_extract_path = sourceData.headers.find((h: any) => h.key === 'Authorization')?.value;
     // token_extract_path lúc này có dạng "Bearer {token}", bóc tách token ra
     token_extract_path = this.extractTokenFromTokenExtractPath(token_extract_path);
-    console.log("🚀 chungnm2 ~ flow-builder.component.ts ~ token_extract_path:", token_extract_path)
+    console.log(
+      '🚀 chungnm2 ~ flow-builder.component.ts ~ token_extract_path:',
+      token_extract_path,
+    );
 
     // Gọi api get token
 
@@ -409,12 +410,12 @@ export class FlowBuilderComponent implements OnInit {
       const connection$ =
         this.showAuthProvider && sourceData.auth_provider?.url
           ? this.flowService.getToken(sourceData.auth_provider, token_extract_path).pipe(
-            switchMap((token) => {
-              console.log('🚀 chungnm2 ~ flow-builder.component.ts ~ token:', token);
-              // this.message.success('Auth successful, calling main API...');
-              return this.flowService.callMainApi(token, sourceData, token_extract_path);
-            }),
-          )
+              switchMap((token) => {
+                console.log('🚀 chungnm2 ~ flow-builder.component.ts ~ token:', token);
+                // this.message.success('Auth successful, calling main API...');
+                return this.flowService.callMainApi(token, sourceData, token_extract_path);
+              }),
+            )
           : this.flowService.callMainApi('', sourceData, token_extract_path);
 
       connection$.subscribe({
@@ -555,13 +556,15 @@ export class FlowBuilderComponent implements OnInit {
       trigger: {
         cron: this.convertToCron(raw.trigger.value, raw.trigger.unit),
       },
-      auth_provider: this.showAuthProvider ? {
-        ...auth_provider,
-        // token_extract_path: raw.source.headers.find((h: any) => h.key === 'Authorization')?.value,
-        headers: this.parseArrayToObject(raw.source.auth_provider.headers),
-        param: this.parseArrayToObject(raw.source.auth_provider.param),
-        body: this.parseArrayToObject(formattedAuthBodyMapping),
-      } : null,
+      auth_provider: this.showAuthProvider
+        ? {
+            ...auth_provider,
+            // token_extract_path: raw.source.headers.find((h: any) => h.key === 'Authorization')?.value,
+            headers: this.parseArrayToObject(raw.source.auth_provider.headers),
+            param: this.parseArrayToObject(raw.source.auth_provider.param),
+            body: this.parseArrayToObject(formattedAuthBodyMapping),
+          }
+        : null,
       source: {
         ...sourceWithoutAuth,
         headers: this.parseHeaders(raw.source.headers),
@@ -646,11 +649,8 @@ export class FlowBuilderComponent implements OnInit {
     },
 
     calculate: {
-      action: 'calculate',
-      params: {
-        new_field: 'dew',
-        formula: "get_path(item, 'iaqi.dew.v')",
-      },
+      new_field: 'dew',
+      formula: "get_path(item, 'iaqi.dew.v')",
     },
   };
 
@@ -663,7 +663,7 @@ export class FlowBuilderComponent implements OnInit {
 
   onTransformActionChange(index: number) {
     const transformGroup = this.transforms.at(index) as FormGroup;
-    console.log("test")
+    console.log('test');
     const action = transformGroup.get('action')?.value;
 
     const defaultParams = this.TRANSFORM_DEFAULT_PARAMS[action] || {};
